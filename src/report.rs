@@ -1,0 +1,201 @@
+use std::io::{self, Write};
+use std::path::Path;
+
+use serde::Serialize;
+
+use crate::diagnostics::Diagnostic;
+use crate::types_phase::{TypeDiagnostic, TypesRun, WARNING_SEVERITY};
+
+/// Writes the report for a terminal, without a trailing newline. `types` is `None` when the types phase
+/// did not run. Each row is written as soon as it is formatted, so the report is never built in memory
+/// as one string.
+pub fn write_text(
+    out: &mut impl Write,
+    presence: &[Diagnostic],
+    types: Option<&TypesRun>,
+) -> io::Result<()> {
+    if !presence.is_empty() {
+        return write_presence(out, presence);
+    }
+    write_types_outcome(out, types)
+}
+
+/// Writes the types phase once presence is clean: the line that says it did not run or passed, or its
+/// diagnostics.
+fn write_types_outcome(out: &mut impl Write, types: Option<&TypesRun>) -> io::Result<()> {
+    match types {
+        None => out.write_all(b"All checks passed (presence)."),
+        Some(run) if types_passed(run) => out.write_all(b"All checks passed (presence, types)."),
+        Some(run) => write_types(out, run),
+    }
+}
+
+/// A types run passed when ty printed nothing and did not fail.
+fn types_passed(run: &TypesRun) -> bool {
+    run.diagnostics.is_empty() && !run.failed
+}
+
+/// Renders diagnostics as one JSON object with a `presence` array and a `types` array. `types` is
+/// `null` when the types phase did not run.
+pub fn render_json(
+    presence: &[Diagnostic],
+    types: Option<&TypesRun>,
+) -> Result<String, serde_json::Error> {
+    let report = JsonReport {
+        presence,
+        types: types.map(|run| run.diagnostics.as_slice()),
+    };
+    serde_json::to_string_pretty(&report)
+}
+
+#[derive(Serialize)]
+struct JsonReport<'a> {
+    presence: &'a [Diagnostic],
+    types: Option<&'a [TypeDiagnostic]>,
+}
+
+fn write_presence(out: &mut impl Write, diags: &[Diagnostic]) -> io::Result<()> {
+    let noun = if diags.len() == 1 { "error" } else { "errors" };
+    let summary = format!(
+        "{} {noun} (presence). Type check skipped until presence errors are fixed.",
+        diags.len()
+    );
+    write_section(out, "[presence]", diags, &summary)
+}
+
+fn write_types(out: &mut impl Write, run: &TypesRun) -> io::Result<()> {
+    write_section(out, "[types]", &run.diagnostics, &types_summary(run))
+}
+
+/// Counts the errors and the warnings of a types run, and names each count that is not zero.
+fn types_summary(run: &TypesRun) -> String {
+    let warnings = run
+        .diagnostics
+        .iter()
+        .filter(|diag| diag.severity == WARNING_SEVERITY)
+        .count();
+    let errors = run.diagnostics.len() - warnings;
+    let parts: Vec<String> = [
+        counted(errors, "error", "errors"),
+        counted(warnings, "warning", "warnings"),
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
+    if parts.is_empty() {
+        "ty failed without diagnostics (types).".to_string()
+    } else {
+        format!("{} (types).", parts.join(", "))
+    }
+}
+
+/// `1 error` or `3 errors`, and nothing when the count is zero.
+fn counted(count: usize, one: &str, many: &str) -> Option<String> {
+    match count {
+        0 => None,
+        1 => Some(format!("1 {one}")),
+        n => Some(format!("{n} {many}")),
+    }
+}
+
+/// One row of a titled section: where it is, and the text that follows its location.
+trait Row {
+    fn path(&self) -> &Path;
+    fn line(&self) -> u32;
+    fn col(&self) -> u32;
+    /// Writes the text after the location, such as `GW001 variable 'x' has no type annotation`.
+    fn write_text(&self, out: &mut dyn Write) -> io::Result<()>;
+}
+
+impl Row for Diagnostic {
+    fn path(&self) -> &Path {
+        &self.path
+    }
+
+    fn line(&self) -> u32 {
+        self.line
+    }
+
+    fn col(&self) -> u32 {
+        self.col
+    }
+
+    fn write_text(&self, out: &mut dyn Write) -> io::Result<()> {
+        write!(out, "{} {}", self.code.as_str(), self.message)
+    }
+}
+
+impl Row for TypeDiagnostic {
+    fn path(&self) -> &Path {
+        &self.path
+    }
+
+    fn line(&self) -> u32 {
+        self.line
+    }
+
+    fn col(&self) -> u32 {
+        self.col
+    }
+
+    fn write_text(&self, out: &mut dyn Write) -> io::Result<()> {
+        write!(out, "ty[{}] {}", self.rule, self.message)
+    }
+}
+
+/// A titled block of rows, each a location and its text in aligned columns, then a blank line and the
+/// summary. The location column is as wide as the longest location.
+fn write_section<R: Row>(
+    out: &mut impl Write,
+    title: &str,
+    rows: &[R],
+    summary: &str,
+) -> io::Result<()> {
+    writeln!(out, "{title}")?;
+    let widths: Vec<usize> = rows.iter().map(location_width).collect();
+    let width = widths.iter().copied().max().unwrap_or_default();
+    for (row, location) in rows.iter().zip(widths) {
+        write_row(out, row, width - location)?;
+    }
+    write!(out, "\n{summary}")
+}
+
+/// Writes one row: its location, then `padding` spaces and two more, then its text.
+fn write_row(out: &mut impl Write, row: &impl Row, padding: usize) -> io::Result<()> {
+    write_location(out, row)?;
+    write_spaces(out, padding + 2)?;
+    row.write_text(out)?;
+    out.write_all(b"\n")
+}
+
+/// Writes the location `path:line:col`. The path is written as `Path::display` shows it.
+fn write_location(out: &mut impl Write, row: &impl Row) -> io::Result<()> {
+    out.write_all(row.path().to_string_lossy().as_bytes())?;
+    write!(out, ":{}:{}", row.line(), row.col())
+}
+
+/// Writes `count` spaces, from a buffer of spaces rather than one character at a time.
+fn write_spaces(out: &mut impl Write, mut count: usize) -> io::Result<()> {
+    const SPACES: [u8; 64] = [b' '; 64];
+    while count > 0 {
+        let chunk = count.min(SPACES.len());
+        out.write_all(&SPACES[..chunk])?;
+        count -= chunk;
+    }
+    Ok(())
+}
+
+/// The number of characters in the location `path:line:col`, counted without writing it out.
+fn location_width(row: &impl Row) -> usize {
+    row.path().to_string_lossy().chars().count()
+        + 2
+        + decimal_digits(row.line())
+        + decimal_digits(row.col())
+}
+
+/// The number of decimal digits in `value`.
+fn decimal_digits(value: u32) -> usize {
+    value
+        .checked_ilog10()
+        .map_or(1, |digits| digits as usize + 1)
+}

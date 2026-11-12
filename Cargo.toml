@@ -1,0 +1,25 @@
+[package]
+name = "gawain"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97"
+license = "MIT"
+description = "Checks Python source files for missing type annotations, then runs the ty type checker."
+repository = "https://github.com/matheuzgomes/gawain"
+publish = false
+
+[dependencies]
+clap = { version = "4.6.7", features = ["derive"] }
+ignore = "0.4.34"
+rayon = "1.12.0"
+ruff_python_ast = "=0.0.21"
+ruff_python_parser = "=0.0.21"
+ruff_source_file = "=0.0.21"
+ruff_text_size = "=0.0.21"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+toml = "1.2.1"
+
+[dev-dependencies]
+assert_cmd = "2.2.2"
+serde_json = "1.0.154"

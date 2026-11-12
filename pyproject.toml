@@ -1,0 +1,35 @@
+[build-system]
+requires = ["maturin>=1.10,<2"]
+build-backend = "maturin"
+
+[project]
+name = "gawain"
+version = "0.1.0"
+description = "Checks Python source files for missing type annotations, then runs the ty type checker."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Marinho" }]
+keywords = ["type annotations", "type checker", "linter", "ty", "typing"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Rust",
+    "Topic :: Software Development :: Quality Assurance",
+]
+dependencies = ["ty==0.0.100"]
+
+[project.urls]
+Repository = "https://github.com/matheuzgomes/gawain"
+Documentation = "https://github.com/matheuzgomes/gawain/tree/main/docs"
+Issues = "https://github.com/matheuzgomes/gawain/issues"
+
+[tool.maturin]
+bindings = "bin"
+
+[tool.gawain]
+exclude = ["tests/fixtures", "tests/fixtures_obvious", "tests/python/data"]

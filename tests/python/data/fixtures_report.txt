@@ -1,0 +1,318 @@
+file                        line  gawain        must-annotate  status    reason
+any_ban.py                  14    GW020        -              expected  gawain only: must-annotate has no Any rule, so GW020 on a reference to typing.Any in a type expression is gawain's
+any_ban.py                  15    GW020        -              expected  gawain only: must-annotate has no Any rule, so GW020 on a reference to typing.Any in a type expression is gawain's
+any_ban.py                  19    GW020        -              expected  gawain only: must-annotate has no Any rule, so GW020 on a reference to typing.Any in a type expression is gawain's
+any_ban.py                  23    GW020        -              expected  gawain only: must-annotate has no Any rule, so GW020 on a reference to typing.Any in a type expression is gawain's
+any_ban.py                  27    GW020        -              expected  gawain only: must-annotate has no Any rule, so GW020 on a reference to typing.Any in a type expression is gawain's
+any_ban.py                  28    GW020        -              expected  gawain only: must-annotate has no Any rule, so GW020 on a reference to typing.Any in a type expression is gawain's
+any_ban.py                  29    GW020        -              expected  gawain only: must-annotate has no Any rule, so GW020 on a reference to typing.Any in a type expression is gawain's
+any_ban.py                  30    GW020        -              expected  gawain only: must-annotate has no Any rule, so GW020 on a reference to typing.Any in a type expression is gawain's
+any_ban.py                  31    GW020        -              expected  gawain only: must-annotate has no Any rule, so GW020 on a reference to typing.Any in a type expression is gawain's
+any_ban.py                  32    GW020        -              expected  gawain only: must-annotate has no Any rule, so GW020 on a reference to typing.Any in a type expression is gawain's
+any_ban.py                  33    GW020        -              expected  gawain only: must-annotate has no Any rule, so GW020 on a reference to typing.Any in a type expression is gawain's
+any_ban.py                  35    GW020        -              expected  gawain only: must-annotate has no Any rule, so GW020 on a reference to typing.Any in a type expression is gawain's
+any_ban.py                  36    GW020        -              expected  gawain only: must-annotate has no Any rule, so GW020 on a reference to typing.Any in a type expression is gawain's
+any_ban.py                  38    GW020        -              expected  gawain only: must-annotate has no Any rule, so GW020 on a reference to typing.Any in a type expression is gawain's
+any_ban.py                  39    GW020        -              expected  gawain only: must-annotate has no Any rule, so GW020 on a reference to typing.Any in a type expression is gawain's
+any_ban.py                  40    GW020        -              expected  gawain only: must-annotate has no Any rule, so GW020 on a reference to typing.Any in a type expression is gawain's
+any_ban.py                  41    GW020        -              expected  gawain only: must-annotate has no Any rule, so GW020 on a reference to typing.Any in a type expression is gawain's
+any_ban.py                  42    GW020        -              expected  gawain only: must-annotate has no Any rule, so GW020 on a reference to typing.Any in a type expression is gawain's
+any_ban.py                  45    GW020        -              expected  gawain only: must-annotate has no Any rule, so GW020 on a reference to typing.Any in a type expression is gawain's
+any_ban.py                  49    GW020        -              expected  gawain only: must-annotate has no Any rule, so GW020 on a reference to typing.Any in a type expression is gawain's
+any_ban.py                  54    GW020        -              expected  gawain only: must-annotate has no Any rule, so GW020 on a reference to typing.Any in a type expression is gawain's
+any_ban.py                  58    GW020        -              expected  gawain only: must-annotate has no Any rule, so GW020 on a reference to typing.Any in a type expression is gawain's
+any_ban.py                  59    GW020        -              expected  gawain only: must-annotate has no Any rule, so GW020 on a reference to typing.Any in a type expression is gawain's
+any_ban.py                  66    GW020        -              expected  gawain only: must-annotate has no Any rule, so GW020 on a reference to typing.Any in a type expression is gawain's
+any_ban.py                  67    GW020        -              expected  gawain only: must-annotate has no Any rule, so GW020 on a reference to typing.Any in a type expression is gawain's
+any_ban.py                  76    GW020        -              expected  gawain only: must-annotate has no Any rule, so GW020 on a reference to typing.Any in a type expression is gawain's
+any_star.py                 4     GW020        -              expected  gawain only: must-annotate has no Any rule, so GW020 on a reference to typing.Any in a type expression is gawain's
+any_star.py                 5     GW020        -              expected  gawain only: must-annotate has no Any rule, so GW020 on a reference to typing.Any in a type expression is gawain's
+any_star_te.py              4     GW020        -              expected  gawain only: must-annotate has no Any rule, so GW020 on a reference to typing.Any in a type expression is gawain's
+any_star_te.py              5     GW020        -              expected  gawain only: must-annotate has no Any rule, so GW020 on a reference to typing.Any in a type expression is gawain's
+classes.py                  9     -            TF001          expected  a TypeVar, ParamSpec, TypeVarTuple, NewType, NamedTuple or TypedDict value declares its type, so gawain exempts it
+classes.py                  13    GW004        TF004          agree
+classes.py                  14    GW004        TF004          agree
+classes.py                  15    GW004        TF004          agree
+classes.py                  16    -            TF004          expected  gawain never reports a dunder or `_` in a class body; must-annotate does
+classes.py                  17    -            TF004          expected  gawain never reports a dunder or `_` in a class body; must-annotate does
+classes.py                  18    -            TF004          expected  gawain never reports a dunder or `_` in a class body; must-annotate does
+classes.py                  20    -            TF004          expected  a TypeVar, ParamSpec, TypeVarTuple, NewType, NamedTuple or TypedDict value declares its type, so gawain exempts it
+classes.py                  26    -            TF004          expected  annotation is required only at the first binding in a scope, so a later assignment is free
+classes.py                  31    -            TF004          expected  annotation is required only at the first binding in a scope, so a later assignment is free
+classes.py                  39    -            TF004          expected  self.x is declared in the class body, which satisfies gawain's attribute rule
+classes.py                  40    GW004        TF004          agree
+classes.py                  41    GW004        -              expected  an annotated self.x: T in a method does not declare x; must-annotate does not read annotated assignments
+classes.py                  42    GW004        -              expected  must-annotate does not check unpacked receiver attributes; gawain does (fixture classes.py:42)
+classes.py                  43    GW004        -              expected  must-annotate does not check for or with targets on a receiver; gawain does (fixture classes.py)
+classes.py                  45    GW004        -              expected  must-annotate does not check for or with targets on a receiver; gawain does (fixture classes.py)
+classes.py                  52    GW004        TF004          agree
+classes.py                  58    GW004        -              expected  must-annotate checks self attributes only in __init__; gawain judges receiver writes in every method
+classes.py                  76    -            TF002          expected  gawain takes the first positional parameter as the receiver whatever its name; must-annotate exempts only self and cls
+classes.py                  77    GW004        -              expected  must-annotate checks self attributes only in __init__; gawain judges receiver writes in every method
+classes.py                  91    -            TF004          expected  a member of an Enum class is a member, not an attribute, so gawain exempts it
+classes.py                  92    -            TF004          expected  a member of an Enum class is a member, not an attribute, so gawain exempts it
+classes.py                  96    -            TF004          expected  a member of an Enum class is a member, not an attribute, so gawain exempts it
+classes.py                  104   -            TF004          expected  a member of an Enum class is a member, not an attribute, so gawain exempts it
+classes.py                  108   GW004        TF004          agree
+classes.py                  111   -            TF004          expected  an external ancestor releases gawain's attribute rule; must-annotate checks __init__ anyway
+classes.py                  116   GW004        TF004          agree
+classes.py                  125   -            TF004          expected  self.x is declared by a project ancestor, which satisfies gawain's attribute rule
+classes.py                  130   -            TF004          expected  self.x is declared by a project ancestor, which satisfies gawain's attribute rule
+classes.py                  131   GW004        TF004          agree
+classes.py                  136   GW004        TF004          agree
+classes.py                  153   -            TF004          expected  self.x is declared by a project ancestor, which satisfies gawain's attribute rule
+classes.py                  154   GW004        TF004          agree
+classes.py                  159   GW004        TF004          agree
+classes.py                  169   -            TF004          expected  an external ancestor releases gawain's attribute rule; must-annotate checks __init__ anyway
+classes.py                  176   -            TF004          expected  a member of an Enum class is a member, not an attribute, so gawain exempts it
+classes.py                  184   -            TF004          expected  an external ancestor releases gawain's attribute rule; must-annotate checks __init__ anyway
+classes.py                  191   GW004        TF004          agree
+classes.py                  194   -            TF004          expected  self.x is declared by a project ancestor, which satisfies gawain's attribute rule
+classes.py                  195   GW004        TF004          agree
+constants.py                10    GW011        -              expected  gawain only: must-annotate has no Final rule, so GW010 or GW011 on an annotated name is gawain's
+constants.py                11    GW010        -              expected  gawain only: must-annotate has no Final rule, so GW010 or GW011 on an annotated name is gawain's
+constants.py                12    GW001        TF001          agree
+constants.py                16    GW010        -              expected  gawain only: must-annotate has no Final rule, so GW010 or GW011 on an annotated name is gawain's
+constants.py                17    GW011        -              expected  gawain only: must-annotate has no Final rule, so GW010 or GW011 on an annotated name is gawain's
+constants.py                18    GW010        -              expected  gawain only: must-annotate has no Final rule, so GW010 or GW011 on an annotated name is gawain's
+constants.py                19    GW011        -              expected  gawain only: must-annotate has no Final rule, so GW010 or GW011 on an annotated name is gawain's
+constants.py                20    GW011        -              expected  gawain only: must-annotate has no Final rule, so GW010 or GW011 on an annotated name is gawain's
+constants.py                21    GW010        -              expected  gawain only: must-annotate has no Final rule, so GW010 or GW011 on an annotated name is gawain's
+constants.py                22    GW010        -              expected  gawain only: must-annotate has no Final rule, so GW010 or GW011 on an annotated name is gawain's
+constants.py                24    GW011        -              expected  gawain only: must-annotate has no Final rule, so GW010 or GW011 on an annotated name is gawain's
+constants.py                28    GW010        -              expected  gawain only: must-annotate has no Final rule, so GW010 or GW011 on an annotated name is gawain's
+constants.py                33    GW010        -              expected  gawain only: must-annotate has no Final rule, so GW010 or GW011 on an annotated name is gawain's
+constants.py                34    GW011        -              expected  gawain only: must-annotate has no Final rule, so GW010 or GW011 on an annotated name is gawain's
+constants.py                35    GW010        -              expected  gawain only: must-annotate has no Final rule, so GW010 or GW011 on an annotated name is gawain's
+constants.py                40    GW004        TF004          agree
+constants.py                41    GW010        -              expected  gawain only: must-annotate has no Final rule, so GW010 or GW011 on an annotated name is gawain's
+constants.py                42    GW011        -              expected  gawain only: must-annotate has no Final rule, so GW010 or GW011 on an annotated name is gawain's
+constants.py                44    GW011        -              expected  gawain only: must-annotate has no Final rule, so GW010 or GW011 on an annotated name is gawain's
+constants.py                47    GW004        -              expected  an annotated self.x: T in a method does not declare x; must-annotate does not read annotated assignments
+constants.py                47    GW011        -              expected  gawain only: must-annotate has no Final rule, so GW010 or GW011 on an annotated name is gawain's
+constants.py                48    GW004        -              expected  an annotated self.x: T in a method does not declare x; must-annotate does not read annotated assignments
+constants.py                49    GW004        -              expected  an annotated self.x: T in a method does not declare x; must-annotate does not read annotated assignments
+constants.py                54    GW011        -              expected  gawain only: must-annotate has no Final rule, so GW010 or GW011 on an annotated name is gawain's
+duplicate_class.py          11    GW004        TF004          agree
+duplicate_class_bodies.py   5     -            TF004          expected  self.x is declared in the class body, which satisfies gawain's attribute rule
+functions.py                5     GW003        TF003          agree
+functions.py                6     GW002        TF002          agree
+functions.py                7     GW002        TF002          agree
+functions.py                20    GW002        TF002          agree
+functions.py                26    GW002        TF002          agree
+functions.py                27    GW002        TF002          agree
+functions.py                42    GW002        TF002          agree
+functions.py                48    GW002        TF002          agree
+functions.py                55    GW003        TF003          agree
+functions.py                56    GW002        TF002          agree
+functions.py                64    GW003        TF003          agree
+functions.py                65    GW002        TF002          agree
+functions.py                76    GW003        TF003          agree
+functions.py                77    GW002        TF002          agree
+functions.py                83    GW002        TF002          agree
+functions.py                83    GW003        TF003          agree
+functions.py                89    GW001        TF001          agree
+functions.py                102   GW002        TF002          agree
+functions.py                106   -            TF002          expected  gawain takes the first positional parameter as the receiver whatever its name; must-annotate exempts only self and cls
+functions.py                109   GW003        TF003          agree
+functions.py                113   GW004        -              expected  must-annotate checks self attributes only in __init__; gawain judges receiver writes in every method
+functions.py                116   GW003        TF003          agree
+functions.py                117   GW002        TF002          agree
+functions.py                122   GW003        TF003          agree
+functions.py                134   GW002        TF002          agree
+functions.py                139   GW003        TF003          agree
+functions.py                146   GW002        TF002          agree
+functions.py                152   GW002        TF002          agree
+functions.py                158   GW003        TF003          agree
+functions.py                161   GW002        TF002          agree
+functions.py                167   GW003        TF003          agree
+functions.py                168   GW002        TF002          agree
+functions.py                177   GW003        TF003          agree
+functions.py                179   GW002        TF002          agree
+functions.py                185   -            TF003          expected  __init__ may omit `-> None` when another judged parameter is annotated
+functions.py                186   GW004        TF004          agree
+functions.py                194   GW003        TF003          agree
+functions.py                199   GW003        TF003          agree
+functions.py                201   GW002        TF002          agree
+functions.py                203   GW004        TF004          agree
+functions.py                207   -            TF003          expected  __init__ may omit `-> None` when another judged parameter is annotated
+functions.py                208   GW004        TF004          agree
+functions.py                212   -            TF003          expected  __init__ may omit `-> None` when another judged parameter is annotated
+functions.py                213   GW004        TF004          agree
+functions.py                217   GW003        TF003          agree
+functions.py                219   GW002        TF002          agree
+functions.py                221   GW004        TF004          agree
+functions.py                225   -            TF003          expected  __init__ may omit `-> None` when another judged parameter is annotated
+functions.py                227   GW002        TF002          agree
+functions.py                230   GW004        TF004          agree
+functions.py                235   GW003        TF003          agree
+functions.py                236   GW002        TF002          agree
+pkg_inherit/app/derived.py  6     -            TF004          expected  self.x is declared by a project ancestor, which satisfies gawain's attribute rule
+pkg_inherit/app/derived.py  7     GW004        TF004          agree
+pkg_inherit/app/ext.py      5     GW004        TF004          agree
+pkg_inherit/app/ext.py      8     -            TF004          expected  an external ancestor releases gawain's attribute rule; must-annotate checks __init__ anyway
+pkg_inherit/app/loop_a.py   6     -            TF004          expected  an external ancestor releases gawain's attribute rule; must-annotate checks __init__ anyway
+pkg_inherit/app/pkgref.py   8     -            TF004          expected  self.x is declared by a project ancestor, which satisfies gawain's attribute rule
+pkg_inherit/app/pkgref.py   9     GW004        TF004          agree
+pkg_inherit/app/pkgref.py   14    -            TF004          expected  self.x is declared by a project ancestor, which satisfies gawain's attribute rule
+pkg_inherit/app/pkgref.py   19    -            TF004          expected  self.x is declared by a project ancestor, which satisfies gawain's attribute rule
+pkg_inherit/app/users.py    7     -            TF004          expected  self.x is declared by a project ancestor, which satisfies gawain's attribute rule
+pkg_inherit/app/users.py    8     GW004        TF004          agree
+pkg_inherit/app/users.py    13    -            TF004          expected  self.x is declared by a project ancestor, which satisfies gawain's attribute rule
+pkg_inherit/app/users.py    14    GW004        TF004          agree
+rebound_class_name.py       11    -            TF004          expected  an external ancestor releases gawain's attribute rule; must-annotate checks __init__ anyway
+rebound_class_name.py       24    GW004        TF004          agree
+suppression.py              5     -            TF001          expected  a `gawain: ignore[...]` directive on this line silences the gawain code of this family
+suppression.py              6     GW901        -              expected  gawain only: GW900 reports a malformed `gawain: ignore` directive and GW901 an unused one, which must-annotate does not read
+suppression.py              6     GW001        TF001          agree
+suppression.py              7     GW900        -              expected  gawain only: GW900 reports a malformed `gawain: ignore` directive and GW901 an unused one, which must-annotate does not read
+suppression.py              7     GW001        TF001          agree
+suppression.py              8     GW900        -              expected  gawain only: GW900 reports a malformed `gawain: ignore` directive and GW901 an unused one, which must-annotate does not read
+suppression.py              8     GW001        TF001          agree
+suppression.py              9     GW900        -              expected  gawain only: GW900 reports a malformed `gawain: ignore` directive and GW901 an unused one, which must-annotate does not read
+suppression.py              9     -            TF001          expected  a `gawain: ignore[...]` directive on this line silences the gawain code of this family
+suppression.py              10    -            TF001          expected  a `gawain: ignore[...]` directive on this line silences the gawain code of this family
+suppression.py              11    -            TF001          expected  a `gawain: ignore[...]` directive on this line silences the gawain code of this family
+suppression.py              12    GW900        -              expected  gawain only: GW900 reports a malformed `gawain: ignore` directive and GW901 an unused one, which must-annotate does not read
+suppression.py              12    GW001        TF001          agree
+suppression.py              13    GW900        -              expected  gawain only: GW900 reports a malformed `gawain: ignore` directive and GW901 an unused one, which must-annotate does not read
+suppression.py              13    GW001        TF001          agree
+suppression.py              14    GW001        TF001          agree
+suppression.py              15    GW001        TF001          agree
+suppression.py              16    -            TF001          expected  a `gawain: ignore[...]` directive on this line silences the gawain code of this family
+suppression.py              17    GW901        -              expected  gawain only: GW900 reports a malformed `gawain: ignore` directive and GW901 an unused one, which must-annotate does not read
+suppression.py              17    -            TF001          expected  a `gawain: ignore[...]` directive on this line silences the gawain code of this family
+suppression.py              18    GW900        -              expected  gawain only: GW900 reports a malformed `gawain: ignore` directive and GW901 an unused one, which must-annotate does not read
+suppression.py              18    GW001        TF001          agree
+suppression.py              19    -            TF001          expected  a `gawain: ignore[...]` directive on this line silences the gawain code of this family
+suppression.py              20    GW001        TF001          agree
+suppression.py              21    -            TF001          expected  a `gawain: ignore[...]` directive on this line silences the gawain code of this family
+suppression.py              22    -            TF001          expected  a `gawain: ignore[...]` directive on this line silences the gawain code of this family
+suppression.py              24    GW001        TF001          agree
+suppression.py              25    GW001        TF001          agree
+suppression.py              26    GW901        -              expected  gawain only: GW900 reports a malformed `gawain: ignore` directive and GW901 an unused one, which must-annotate does not read
+suppression.py              27    GW001        TF001          agree
+suppression.py              28    GW001        TF001          agree
+suppression.py              29    GW901        -              expected  gawain only: GW900 reports a malformed `gawain: ignore` directive and GW901 an unused one, which must-annotate does not read
+suppression.py              33    -            TF002          expected  a `gawain: ignore[...]` directive on this line silences the gawain code of this family
+suppression.py              33    -            TF003          expected  a `gawain: ignore[...]` directive on this line silences the gawain code of this family
+suppression.py              36    -            TF002          expected  a `gawain: ignore[...]` directive on this line silences the gawain code of this family
+suppression.py              36    GW003        TF003          agree
+suppression.py              45    -            TF002          expected  a `gawain: ignore[...]` directive on this line silences the gawain code of this family
+suppression.py              45    -            TF003          expected  a `gawain: ignore[...]` directive on this line silences the gawain code of this family
+suppression.py              48    -            TF002          expected  a `gawain: ignore[...]` directive on this line silences the gawain code of this family
+suppression.py              48    -            TF003          expected  a `gawain: ignore[...]` directive on this line silences the gawain code of this family
+suppression.py              48    GW901        -              expected  gawain only: GW900 reports a malformed `gawain: ignore` directive and GW901 an unused one, which must-annotate does not read
+suppression.py              51    GW901        -              expected  gawain only: GW900 reports a malformed `gawain: ignore` directive and GW901 an unused one, which must-annotate does not read
+suppression.py              54    GW901        -              expected  gawain only: GW900 reports a malformed `gawain: ignore` directive and GW901 an unused one, which must-annotate does not read
+suppression.py              54    GW001        TF001          agree
+suppression.py              55    GW900,GW901  -              expected  gawain only: GW900 reports a malformed `gawain: ignore` directive and GW901 an unused one, which must-annotate does not read
+suppression.py              55    GW001        TF001          agree
+suppression.py              56    GW900        -              expected  gawain only: GW900 reports a malformed `gawain: ignore` directive and GW901 an unused one, which must-annotate does not read
+suppression.py              56    GW001        TF001          agree
+variables.py                10    GW001        TF001          agree
+variables.py                11    -            TF001          expected  annotation is required only at the first binding in a scope, so a later assignment is free
+variables.py                13    GW001        TF001          agree
+variables.py                16    GW001        TF001          agree
+variables.py                18    -            TF001          expected  annotation is required only at the first binding in a scope, so a later assignment is free
+variables.py                23    -            TF001          expected  annotation is required only at the first binding in a scope, so a later assignment is free
+variables.py                25    -            TF001          expected  annotation is required only at the first binding in a scope, so a later assignment is free
+variables.py                29    -            TF001          expected  annotation is required only at the first binding in a scope, so a later assignment is free
+variables.py                32    GW001        TF001          agree
+variables.py                35    -            TF001          expected  gawain exempts names inside an unpacking target (glossary: exempt target); must-annotate reports them
+variables.py                36    -            TF001          expected  gawain exempts names inside an unpacking target (glossary: exempt target); must-annotate reports them
+variables.py                37    -            TF001          expected  gawain exempts names inside an unpacking target (glossary: exempt target); must-annotate reports them
+variables.py                40    -            TF005          expected  for and with targets are exempt in gawain; must-annotate reports them only under the opt-in TF005
+variables.py                42    -            TF001          expected  annotation is required only at the first binding in a scope, so a later assignment is free
+variables.py                44    -            TF005          expected  for and with targets are exempt in gawain; must-annotate reports them only under the opt-in TF005
+variables.py                45    GW001        TF001          agree
+variables.py                46    -            TF001          expected  annotation is required only at the first binding in a scope, so a later assignment is free
+variables.py                49    GW001        TF001          agree
+variables.py                52    -            TF001          expected  annotation is required only at the first binding in a scope, so a later assignment is free
+variables.py                56    -            TF001          expected  annotation is required only at the first binding in a scope, so a later assignment is free
+variables.py                58    -            TF001          expected  annotation is required only at the first binding in a scope, so a later assignment is free
+variables.py                61    GW001        TF001          agree
+variables.py                62    GW001        TF001          agree
+variables.py                64    GW001        TF001          agree
+variables.py                65    -            TF001          expected  annotation is required only at the first binding in a scope, so a later assignment is free
+variables.py                68    GW001        TF001          agree
+variables.py                69    GW001        TF001          agree
+variables.py                70    GW001        TF001          agree
+variables.py                71    GW001        TF001          agree
+variables.py                73    GW001        TF001          agree
+variables.py                74    -            TF001          expected  annotation is required only at the first binding in a scope, so a later assignment is free
+variables.py                83    GW001        -              expected  gawain needs more than four characters for a dunder (fixture variables.py); must-annotate skips `____`
+variables.py                85    GW001        TF001          agree
+variables.py                96    GW001        TF001          agree
+variables.py                99    -            TF001          expected  a TypeVar, ParamSpec, TypeVarTuple, NewType, NamedTuple or TypedDict value declares its type, so gawain exempts it
+variables.py                100   -            TF001          expected  a TypeVar, ParamSpec, TypeVarTuple, NewType, NamedTuple or TypedDict value declares its type, so gawain exempts it
+variables.py                101   -            TF001          expected  a TypeVar, ParamSpec, TypeVarTuple, NewType, NamedTuple or TypedDict value declares its type, so gawain exempts it
+variables.py                102   -            TF001          expected  a TypeVar, ParamSpec, TypeVarTuple, NewType, NamedTuple or TypedDict value declares its type, so gawain exempts it
+variables.py                103   -            TF001          expected  a TypeVar, ParamSpec, TypeVarTuple, NewType, NamedTuple or TypedDict value declares its type, so gawain exempts it
+variables.py                104   -            TF001          expected  a TypeVar, ParamSpec, TypeVarTuple, NewType, NamedTuple or TypedDict value declares its type, so gawain exempts it
+variables.py                105   -            TF001          expected  a TypeVar, ParamSpec, TypeVarTuple, NewType, NamedTuple or TypedDict value declares its type, so gawain exempts it
+variables.py                106   -            TF001          expected  a TypeVar, ParamSpec, TypeVarTuple, NewType, NamedTuple or TypedDict value declares its type, so gawain exempts it
+variables.py                107   -            TF001          expected  a TypeVar, ParamSpec, TypeVarTuple, NewType, NamedTuple or TypedDict value declares its type, so gawain exempts it
+variables.py                108   -            TF001          expected  a TypeVar, ParamSpec, TypeVarTuple, NewType, NamedTuple or TypedDict value declares its type, so gawain exempts it
+variables.py                109   -            TF001          expected  a TypeVar, ParamSpec, TypeVarTuple, NewType, NamedTuple or TypedDict value declares its type, so gawain exempts it
+variables.py                110   -            TF001          expected  a TypeVar, ParamSpec, TypeVarTuple, NewType, NamedTuple or TypedDict value declares its type, so gawain exempts it
+variables.py                111   GW001        TF001          agree
+variables.py                112   GW001        TF001          agree
+variables.py                115   GW001        TF001          agree
+variables.py                120   -            TF001          expected  annotation is required only at the first binding in a scope, so a later assignment is free
+variables.py                124   -            TF001          expected  annotation is required only at the first binding in a scope, so a later assignment is free
+variables.py                126   -            TF001          expected  annotation is required only at the first binding in a scope, so a later assignment is free
+variables.py                128   -            TF001          expected  annotation is required only at the first binding in a scope, so a later assignment is free
+variables.py                130   -            TF001          expected  annotation is required only at the first binding in a scope, so a later assignment is free
+variables.py                141   -            TF001          expected  annotation is required only at the first binding in a scope, so a later assignment is free
+variables.py                148   -            TF001          expected  annotation is required only at the first binding in a scope, so a later assignment is free
+variables.py                153   GW004        TF004          agree
+variables.py                156   GW001        -              expected  must-annotate skips TF001 in any function nested under a class, not only in the class body (its bug)
+variables.py                162   GW004        TF004          agree
+variables.py                167   -            TF001          expected  annotation is required only at the first binding in a scope, so a later assignment is free
+variables.py                172   GW001        TF001          agree
+variables.py                173   -            TF001          expected  annotation is required only at the first binding in a scope, so a later assignment is free
+variables.py                178   GW001        TF001          agree
+variables.py                181   GW001        TF001          agree
+variables.py                190   -            TF001          expected  annotation is required only at the first binding in a scope, so a later assignment is free
+variables.py                192   -            TF001          expected  annotation is required only at the first binding in a scope, so a later assignment is free
+variables.py                205   GW001        TF001          agree
+variables.py                210   -            TF001          expected  annotation is required only at the first binding in a scope, so a later assignment is free
+variables.py                218   -            TF001          expected  annotation is required only at the first binding in a scope, so a later assignment is free
+variables.py                229   -            TF001          expected  annotation is required only at the first binding in a scope, so a later assignment is free
+variables.py                233   GW001        TF001          agree
+variables.py                237   GW001        TF001          agree
+variables.py                238   -            TF005          expected  for and with targets are exempt in gawain; must-annotate reports them only under the opt-in TF005
+variables.py                239   -            TF001          expected  annotation is required only at the first binding in a scope, so a later assignment is free
+variables.py                240   -            TF005          expected  for and with targets are exempt in gawain; must-annotate reports them only under the opt-in TF005
+variables.py                241   -            TF001          expected  annotation is required only at the first binding in a scope, so a later assignment is free
+variables.py                242   -            TF001          expected  annotation is required only at the first binding in a scope, so a later assignment is free
+variables.py                243   -            TF001          expected  annotation is required only at the first binding in a scope, so a later assignment is free
+variables.py                250   -            TF001          expected  annotation is required only at the first binding in a scope, so a later assignment is free
+variables.py                253   -            TF001          expected  annotation is required only at the first binding in a scope, so a later assignment is free
+variables.py                256   -            TF001          expected  annotation is required only at the first binding in a scope, so a later assignment is free
+
+112 agree · 180 expected · 0 unexplained
+expected rows by predicate:
+    19  gawain_only_final: gawain only: must-annotate has no Final rule, so GW010 or GW011 on an annotated name is gawain's
+    30  gawain_only_any: gawain only: must-annotate has no Any rule, so GW020 on a reference to typing.Any in a type expression is gawain's
+    15  gawain_only_suppression: gawain only: GW900 reports a malformed `gawain: ignore` directive and GW901 an unused one, which must-annotate does not read
+    16  suppressed_by_gawain_comment: a `gawain: ignore[...]` directive on this line silences the gawain code of this family
+     4  ma_loop_target: for and with targets are exempt in gawain; must-annotate reports them only under the opt-in TF005
+    35  reassigned_name: annotation is required only at the first binding in a scope, so a later assignment is free
+    14  type_declaring_call: a TypeVar, ParamSpec, TypeVarTuple, NewType, NamedTuple or TypedDict value declares its type, so gawain exempts it
+     5  enum_member: a member of an Enum class is a member, not an attribute, so gawain exempts it
+     3  class_body_dunder_or_underscore: gawain never reports a dunder or `_` in a class body; must-annotate does
+     4  init_without_return: __init__ may omit `-> None` when another judged parameter is annotated
+     2  attr_declared_in_class: self.x is declared in the class body, which satisfies gawain's attribute rule
+    10  attr_declared_in_ancestor: self.x is declared by a project ancestor, which satisfies gawain's attribute rule
+     6  attr_external_ancestor: an external ancestor releases gawain's attribute rule; must-annotate checks __init__ anyway
+     2  receiver_not_named_self: gawain takes the first positional parameter as the receiver whatever its name; must-annotate exempts only self and cls
+     0  static_self_parameter: a staticmethod's first parameter is not exempt in gawain; must-annotate exempts self and cls by name
+     3  unpacked_name: gawain exempts names inside an unpacking target (glossary: exempt target); must-annotate reports them
+     1  dunder_four_underscores: gawain needs more than four characters for a dunder (fixture variables.py); must-annotate skips `____`
+     1  ma_class_depth: must-annotate skips TF001 in any function nested under a class, not only in the class body (its bug)
+     4  attr_annotated_write: an annotated self.x: T in a method does not declare x; must-annotate does not read annotated assignments
+     3  attr_non_init_method: must-annotate checks self attributes only in __init__; gawain judges receiver writes in every method
+     2  attr_loop_target: must-annotate does not check for or with targets on a receiver; gawain does (fixture classes.py)
+     1  attr_unpacked_write: must-annotate does not check unpacked receiver attributes; gawain does (fixture classes.py:42)

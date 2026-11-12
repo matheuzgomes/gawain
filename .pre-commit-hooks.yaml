@@ -1,0 +1,6 @@
+- id: gawain
+  name: gawain
+  entry: gawain check
+  language: python
+  types: [python]
+  require_serial: true

@@ -1,0 +1,12 @@
+target/
+.metrics/
+.venv/
+*.whl
+__pycache__/
+.coverage
+uv.lock
+
+# Internal development notes
+docs/crap-exceptions.md
+docs/differential.md
+docs/glossary.md

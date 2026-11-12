@@ -1,0 +1,2 @@
+class Base:
+    size: int
