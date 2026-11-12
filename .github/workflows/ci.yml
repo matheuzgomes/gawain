@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  rust:
+    name: Rust tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - name: Install ty into .venv
+        run: |
+          uv venv --python 3.14 .venv
+          uv pip install --python .venv ty==0.0.100
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo test
+
+  python:
+    name: Differential tests and self-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - run: cargo build
+      - name: Differential tests against must-annotate
+        run: uv run --no-project --python 3.14 --with pytest --with must-annotate==0.1.2 python -m pytest tests/python
+      - name: gawain checks its own Python code
+        run: |
+          uv venv --python 3.14 .venv
+          uv pip install --python .venv ty==0.0.100 pytest
+          PATH="$PWD/.venv/bin:$PATH" target/debug/gawain check scripts tests/python
+
+  windows:
+    name: Windows smoke test
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - run: cargo build --release
+      - name: Run gawain on a clean file and on a file with a missing annotation
+        run: |
+          uv venv --python 3.14 .venv
+          uv pip install --python .venv ty==0.0.100
+          export PATH="$PWD/.venv/Scripts:$PATH"
+          mkdir -p smoke/clean smoke/dirty
+          printf 'def add(a: int, b: int) -> int:\n    return a + b\n' > smoke/clean/ok.py
+          printf 'total = sum([1, 2])\n' > smoke/dirty/bad.py
+          target/release/gawain.exe check smoke/clean
+          status=0
+          target/release/gawain.exe check smoke/dirty || status=$?
+          test "$status" -eq 1
