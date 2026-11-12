@@ -6,9 +6,10 @@
 </p>
 
 gawain requires type annotations on the variables, parameters, returns and class attributes of Python code,
-then runs [ty](https://docs.astral.sh/ty/) to check that the types are correct.
+then runs a type checker, [ty](https://docs.astral.sh/ty/) or [pyrefly](https://pyrefly.org/), to check that the
+types are correct.
 
-Type checkers such as mypy, Pyright and ty infer the type of a variable that has no annotation. ruff's `ANN`
+Type checkers such as mypy, Pyright, ty and pyrefly infer the type of a variable that has no annotation. ruff's `ANN`
 rules and flake8-annotations ask for annotations on functions only. gawain also asks for them on variables and
 class attributes.
 
@@ -52,7 +53,8 @@ shop.py:12:14  GW004 attribute 'items' is not declared in the body of class 'Ord
 
 `retries = 3` passes, because a literal has an obvious type. `PORT` is a constant, so it needs `Final[int]`.
 
-When every annotation is in place, gawain runs ty on the same files and prints what ty reports. For
+When every annotation is in place, gawain runs the type checker on the same files and prints what it reports.
+With ty, the default, for
 `prices.py`:
 
 ```python
@@ -75,23 +77,35 @@ uv tool install gawain
 pip install gawain
 ```
 
-The package installs the `gawain` command and ty, pinned to 0.0.100.
+The package installs the `gawain` command and ty, pinned to 0.0.100. ty is the default type checker. To use
+pyrefly instead, install the `pyrefly` extra, which pins pyrefly 1.4.1:
+
+```sh
+uv tool install "gawain[pyrefly]"
+# or
+pip install "gawain[pyrefly]"
+```
+
+Then choose it with `checker = "pyrefly"` in `[tool.gawain]`, or with `--checker pyrefly`.
+[docs/configuration.md](https://github.com/matheuzgomes/gawain/blob/main/docs/configuration.md#choosing-the-type-checker)
+explains the switch.
 
 > [!WARNING]
 > Use gawain with care. ty is in beta, and its diagnostics may change between versions. If that is a problem
-> for your project, `--no-types` runs the annotation checks only.
+> for your project, use pyrefly, or `--no-types` to run the annotation checks only.
 
 ## Usage
 
 ```sh
 gawain check src/                  # annotations, then types
 gawain check src/ --no-types       # annotations only
+gawain check src/ --checker pyrefly  # pyrefly instead of ty
 gawain check src/ --mode strict    # an annotation on every assignment
 gawain check src/ --format json    # one JSON object, for tools
 ```
 
 gawain exits with `0` when nothing is reported, `1` when it reports an error, and `2` on a usage error or
-when ty cannot run. ty's warnings are printed but do not fail the check.
+when the type checker cannot run. The type checker's warnings are printed but do not fail the check.
 
 ## Rules
 
@@ -163,7 +177,7 @@ gawain ran with `--no-types`. This is one benchmark on one machine (AMD Ryzen 7 
 ## Acknowledgements
 
 gawain reads Python with [ruff_python_parser](https://crates.io/crates/ruff_python_parser) and checks types with
-ty, both by [Astral](https://astral.sh).
+ty, both by [Astral](https://astral.sh), or with [pyrefly](https://pyrefly.org/), by Meta.
 
 ## Name
 

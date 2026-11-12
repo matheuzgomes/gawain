@@ -15,7 +15,7 @@ rely on it.
 The tools do not check the same things, so the output sizes differ. ruff and flake8-annotations check
 parameters and returns. gawain also checks variables and class attributes.
 
-gawain ran with `--no-types`, so the times cover the presence phase only. ty is not part of this comparison.
+gawain ran with `--no-types`, so the times cover the presence phase only. No type checker is part of this comparison.
 
 ## Code
 

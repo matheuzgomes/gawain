@@ -17,7 +17,8 @@ The rules of the presence phase, the two modes, the exemptions and suppression. 
 | GW900 | A malformed `gawain: ignore` comment. It cannot be suppressed. |
 | GW901 | A `gawain: ignore` code that silences nothing. It cannot be suppressed. |
 
-ty's own diagnostics are printed as `ty[rule]`, such as `ty[invalid-assignment]`, and they have no GW code.
+The type checker's own diagnostics are printed with its name and its rule, such as `ty[invalid-assignment]`
+or `pyrefly[bad-assignment]`, and they have no GW code.
 
 ## Modes
 
