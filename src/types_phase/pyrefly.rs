@@ -1,132 +1,18 @@
-//! Types phase: runs the type checker on the files that presence accepted, and reads what it prints.
+//! The pyrefly checker: runs `pyrefly check` and reads its JSON output.
 
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fs;
 use std::io;
 use std::path::{Component, Path, PathBuf, absolute};
-use std::process::{Command, Output};
+use std::process::Output;
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::{Map, Value};
 
 use crate::config::TypeChecker;
 
-/// The gitlab `severity` that ty 0.0.100 gives a warning. Every other severity is an error.
-const TY_WARNING_SEVERITY: &str = "minor";
-
-/// How many lines of the checker's stderr an error message shows.
-const STDERR_LINES: usize = 3;
-
-/// Whether a diagnostic of the type checker fails the types phase.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "lowercase")]
-pub enum Severity {
-    Error,
-    Warning,
-}
-
-/// One diagnostic that the type checker printed. `line` and `col` are 1-based.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct TypeDiagnostic {
-    pub path: PathBuf,
-    pub line: u32,
-    pub col: u32,
-    /// The checker's rule name, such as `invalid-assignment`.
-    pub rule: String,
-    /// The description without the rule name in front of it.
-    pub message: String,
-    /// `Error` fails the types phase, and `Warning` does not.
-    pub severity: Severity,
-}
-
-/// A types phase run that the checker finished: every diagnostic it printed, and whether it failed.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TypesRun {
-    /// The checker that produced this run.
-    pub checker: TypeChecker,
-    pub diagnostics: Vec<TypeDiagnostic>,
-    /// The types phase fails. For ty, the checker exited with 1, which only errors make it do, because gawain
-    /// runs it with `--exit-zero-on-warning`. For pyrefly, at least one diagnostic is an error.
-    pub failed: bool,
-}
-
-/// Why the types phase could not finish.
-#[derive(Debug)]
-pub enum TypesError {
-    NotFound(TypeChecker),
-    Start {
-        path: PathBuf,
-        source: io::Error,
-    },
-    Failed {
-        checker: TypeChecker,
-        code: Option<i32>,
-        stderr: String,
-    },
-}
-
-impl TypesError {
-    /// The failure of a run of `checker` whose exit code or stdout gawain does not accept.
-    fn failed(checker: TypeChecker, output: &Output) -> Self {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        let head: Vec<&str> = stderr.lines().take(STDERR_LINES).collect();
-        TypesError::Failed {
-            checker,
-            code: output.status.code(),
-            stderr: head.join("\n"),
-        }
-    }
-}
-
-/// The message for a checker that is not on PATH and not next to gawain, with the way to fix it.
-fn not_found_message(checker: TypeChecker) -> &'static str {
-    match checker {
-        TypeChecker::Ty => {
-            "gawain: ty not found; install gawain with pip/uv (it depends on ty==0.0.100) or put ty on PATH"
-        }
-        TypeChecker::Pyrefly => {
-            "gawain: pyrefly not found; install gawain[pyrefly] (it depends on pyrefly==1.4.1) or put pyrefly on PATH"
-        }
-    }
-}
-
-impl fmt::Display for TypesError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            TypesError::NotFound(checker) => f.write_str(not_found_message(*checker)),
-            TypesError::Start { path, source } => {
-                write!(f, "gawain: cannot run {}: {source}", path.display())
-            }
-            TypesError::Failed {
-                checker,
-                code,
-                stderr,
-            } => {
-                let code = code.map_or_else(|| "signal".to_owned(), |code| code.to_string());
-                write!(
-                    f,
-                    "gawain: {} failed (exit {code}): {stderr}",
-                    checker.name()
-                )
-            }
-        }
-    }
-}
-
-impl std::error::Error for TypesError {}
-
-/// ty's output is not the gitlab JSON array that gawain reads.
-#[derive(Debug)]
-pub struct TyOutputError(serde_json::Error);
-
-impl fmt::Display for TyOutputError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "ty output is not gitlab JSON: {}", self.0)
-    }
-}
-
-impl std::error::Error for TyOutputError {}
+use super::{Severity, TypeDiagnostic, TypesError, TypesRun, spawn};
 
 /// pyrefly's output is not the JSON object with an `errors` array that gawain reads.
 #[derive(Debug)]
@@ -144,46 +30,10 @@ impl fmt::Display for PyreflyOutputError {
 
 impl std::error::Error for PyreflyOutputError {}
 
-/// Runs `checker` on `files` from the current directory and reads what it printed. The executable is looked up
-/// first; then each checker's own arguments and output rules apply. A run that gawain does not accept is an error.
-pub fn run(checker: TypeChecker, files: &[PathBuf]) -> Result<TypesRun, TypesError> {
-    let exe = find_checker(checker).ok_or(TypesError::NotFound(checker))?;
-    match checker {
-        TypeChecker::Ty => run_ty(&exe, files),
-        TypeChecker::Pyrefly => run_pyrefly(&exe, files),
-    }
-}
-
-/// Runs ty on `files` in gitlab format, with warnings that do not fail the run.
-fn run_ty(ty: &Path, files: &[PathBuf]) -> Result<TypesRun, TypesError> {
-    let args = [
-        "check",
-        "--output-format",
-        "gitlab",
-        "--exit-zero-on-warning",
-        "--",
-    ];
-    let output = spawn(ty, &args, files)?;
-    interpret_ty(&output)
-}
-
-/// Reads ty's output. Its exit code says whether the run failed, and its stdout must be gitlab JSON.
-fn interpret_ty(output: &Output) -> Result<TypesRun, TypesError> {
-    let failed = failed_from_exit_code(output.status.code())
-        .ok_or_else(|| TypesError::failed(TypeChecker::Ty, output))?;
-    let diagnostics = parse_ty_output(&String::from_utf8_lossy(&output.stdout))
-        .map_err(|_| TypesError::failed(TypeChecker::Ty, output))?;
-    Ok(TypesRun {
-        checker: TypeChecker::Ty,
-        diagnostics,
-        failed,
-    })
-}
-
 /// Runs pyrefly on `files` in JSON format and reads what it printed. `--preset default` is added when no pyrefly
 /// config applies to the files, because pyrefly's built-in preset reports too little. With a config, the flag
 /// would override the project's own preset, so it is left out.
-fn run_pyrefly(pyrefly: &Path, files: &[PathBuf]) -> Result<TypesRun, TypesError> {
+pub(super) fn run_pyrefly(pyrefly: &Path, files: &[PathBuf]) -> Result<TypesRun, TypesError> {
     let mut args = vec![
         "check",
         "--output-format",
@@ -218,118 +68,6 @@ fn interpret_pyrefly(output: &Output, files: &[PathBuf]) -> Result<TypesRun, Typ
         failed,
     })
 }
-
-/// Starts `exe` with `args`, then with `files`. The `--` that ends `args` makes each file a path, so a file
-/// whose name begins with `-` is not read as an option.
-fn spawn(exe: &Path, args: &[&str], files: &[PathBuf]) -> Result<Output, TypesError> {
-    Command::new(exe)
-        .args(args)
-        .args(files)
-        .output()
-        .map_err(|source| TypesError::Start {
-            path: exe.to_path_buf(),
-            source,
-        })
-}
-
-/// Whether a run failed, from its exit code: 0 is clean and 1 is failed. Any other code is not accepted.
-fn failed_from_exit_code(code: Option<i32>) -> Option<bool> {
-    match code {
-        Some(0) => Some(false),
-        Some(1) => Some(true),
-        _ => None,
-    }
-}
-
-/// The executable of `checker`: a file named after it in the directory of gawain, and otherwise the first
-/// such file on `PATH`. On Windows the file name ends in `.exe`.
-pub fn find_checker(checker: TypeChecker) -> Option<PathBuf> {
-    let name = executable_name(checker.name());
-    let beside = std::env::current_exe()
-        .ok()
-        .and_then(|exe| exe.parent().map(|dir| dir.join(&name)));
-    beside
-        .filter(|candidate| candidate.is_file())
-        .or_else(|| find_on_path(&name))
-}
-
-/// The file name of the executable `name` on this platform.
-fn executable_name(name: &str) -> String {
-    if cfg!(windows) {
-        format!("{name}.exe")
-    } else {
-        name.to_owned()
-    }
-}
-
-fn find_on_path(name: &str) -> Option<PathBuf> {
-    let path = std::env::var_os("PATH")?;
-    std::env::split_paths(&path)
-        .map(|dir| dir.join(name))
-        .find(|candidate| candidate.is_file())
-}
-
-/// Reads ty's gitlab output: a JSON array with one item per diagnostic. An empty array is a clean run.
-pub fn parse_ty_output(stdout: &str) -> Result<Vec<TypeDiagnostic>, TyOutputError> {
-    let items: Vec<GitlabItem> = serde_json::from_str(stdout).map_err(TyOutputError)?;
-    Ok(items.into_iter().map(TypeDiagnostic::from).collect())
-}
-
-/// One item of ty's gitlab output. Fields that gawain does not use are ignored.
-#[derive(Deserialize)]
-struct GitlabItem {
-    check_name: String,
-    description: String,
-    severity: String,
-    location: GitlabLocation,
-}
-
-#[derive(Deserialize)]
-struct GitlabLocation {
-    path: PathBuf,
-    positions: GitlabPositions,
-}
-
-#[derive(Deserialize)]
-struct GitlabPositions {
-    begin: GitlabPosition,
-}
-
-#[derive(Deserialize)]
-struct GitlabPosition {
-    line: u32,
-    column: u32,
-}
-
-impl From<GitlabItem> for TypeDiagnostic {
-    fn from(item: GitlabItem) -> Self {
-        let prefix = format!("{}: ", item.check_name);
-        let message = item
-            .description
-            .strip_prefix(prefix.as_str())
-            .unwrap_or(&item.description)
-            .to_owned();
-        let begin = item.location.positions.begin;
-        TypeDiagnostic {
-            path: item.location.path,
-            line: begin.line,
-            col: begin.column,
-            rule: item.check_name,
-            message,
-            severity: severity_of(&item.severity),
-        }
-    }
-}
-
-/// The severity of a ty diagnostic: `minor` is a warning, and every other gitlab severity is an error.
-fn severity_of(gitlab: &str) -> Severity {
-    if gitlab == TY_WARNING_SEVERITY {
-        Severity::Warning
-    } else {
-        Severity::Error
-    }
-}
-
 /// Reads pyrefly's JSON output: one object whose `errors` array has one item per diagnostic. An empty array is a
 /// clean run. An array is not that object, even when it holds one.
 pub fn parse_pyrefly_output(stdout: &str) -> Result<Vec<TypeDiagnostic>, PyreflyOutputError> {
@@ -519,83 +257,8 @@ mod tests {
     use std::path::{Path, PathBuf};
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    use super::{
-        Severity, TypeDiagnostic, has_pyrefly_config, lexical_absolute, parse_pyrefly_output,
-        parse_ty_output, restore_passed_paths,
-    };
-
-    /// What ty 0.0.100 printed for `x: int = "a"` in `bad.py`.
-    const SAMPLE: &str = r#"[
-  {
-    "check_name": "invalid-assignment",
-    "description": "invalid-assignment: Object of type `Literal[\"a\"]` is not assignable to `int`",
-    "severity": "major",
-    "fingerprint": "966195585497f407",
-    "location": {
-      "path": "bad.py",
-      "positions": {
-        "begin": {"line": 1, "column": 10},
-        "end": {"line": 1, "column": 13}
-      }
-    }
-  }
-]"#;
-
-    #[test]
-    fn sample_gives_rule_message_and_one_based_position() {
-        assert_eq!(
-            parse_ty_output(SAMPLE).ok(),
-            Some(vec![TypeDiagnostic {
-                path: PathBuf::from("bad.py"),
-                line: 1,
-                col: 10,
-                rule: "invalid-assignment".to_owned(),
-                message: "Object of type `Literal[\"a\"]` is not assignable to `int`".to_owned(),
-                severity: Severity::Error,
-            }])
-        );
-    }
-
-    #[test]
-    fn every_severity_but_minor_is_an_error() {
-        let stdout = r#"[{"check_name":"x","description":"x: y","severity":"critical","location":{"path":"x.py","positions":{"begin":{"line":1,"column":1}}}}]"#;
-        let diagnostics = parse_ty_output(stdout).expect("valid gitlab JSON");
-        assert_eq!(diagnostics[0].severity, Severity::Error);
-    }
-
-    #[test]
-    fn empty_array_is_a_clean_run() {
-        assert_eq!(parse_ty_output("[]").ok(), Some(Vec::new()));
-    }
-
-    #[test]
-    fn text_that_is_not_json_is_an_error() {
-        assert!(parse_ty_output("not json").is_err());
-    }
-
-    #[test]
-    fn output_error_says_the_output_is_not_gitlab_json() {
-        let message = parse_ty_output("not json")
-            .err()
-            .map(|error| error.to_string());
-        assert!(message.is_some_and(|text| text.starts_with("ty output is not gitlab JSON: ")));
-    }
-
-    #[test]
-    fn description_without_the_rule_prefix_is_kept_whole() {
-        let stdout = r#"[{"check_name":"deprecated","description":"other: text","severity":"minor","location":{"path":"x.py","positions":{"begin":{"line":2,"column":3}}}}]"#;
-        assert_eq!(
-            parse_ty_output(stdout).ok(),
-            Some(vec![TypeDiagnostic {
-                path: PathBuf::from("x.py"),
-                line: 2,
-                col: 3,
-                rule: "deprecated".to_owned(),
-                message: "other: text".to_owned(),
-                severity: Severity::Warning,
-            }])
-        );
-    }
+    use super::{has_pyrefly_config, lexical_absolute, parse_pyrefly_output, restore_passed_paths};
+    use crate::types_phase::{Severity, TypeDiagnostic};
 
     /// What pyrefly 1.4.1 printed for `x: int = "a"` in `plain.py`.
     const PYREFLY_SAMPLE: &str = r#"{
