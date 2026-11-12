@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "gawain"
-version = "0.1.0"
+version = "0.2.0"
 description = "Checks Python source files for missing type annotations, then runs the ty type checker."
 readme = "README.md"
 requires-python = ">=3.10"

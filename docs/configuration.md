@@ -108,7 +108,7 @@ How gawain runs each one:
 ```yaml
 repos:
   - repo: https://github.com/matheuzgomes/gawain
-    rev: v0.1.0
+    rev: v0.2.0
     hooks:
       - id: gawain
 ```
@@ -122,7 +122,7 @@ leave files out of the hook, use pre-commit's own `exclude:` option:
 ```yaml
 repos:
   - repo: https://github.com/matheuzgomes/gawain
-    rev: v0.1.0
+    rev: v0.2.0
     hooks:
       - id: gawain
         exclude: ^tests/fixtures/
