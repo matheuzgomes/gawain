@@ -23,6 +23,9 @@ classifiers = [
 ]
 dependencies = ["ty==0.0.100"]
 
+[project.optional-dependencies]
+pyrefly = ["pyrefly==1.4.1"]
+
 [project.urls]
 Repository = "https://github.com/matheuzgomes/gawain"
 Documentation = "https://github.com/matheuzgomes/gawain/tree/main/docs"

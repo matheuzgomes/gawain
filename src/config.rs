@@ -3,7 +3,7 @@ use std::io;
 use std::path::Path;
 
 use clap::ValueEnum;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 /// How the presence phase judges a first binding whose value is obvious, such as `count = 0`.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Deserialize, ValueEnum)]
@@ -14,6 +14,27 @@ pub enum Mode {
     Obvious,
     /// Every first binding needs an annotation.
     Strict,
+}
+
+/// The type checker that the types phase runs.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, ValueEnum)]
+#[serde(rename_all = "lowercase")]
+pub enum TypeChecker {
+    /// Astral's ty, installed with gawain.
+    #[default]
+    Ty,
+    /// Meta's pyrefly, installed with `gawain[pyrefly]`.
+    Pyrefly,
+}
+
+impl TypeChecker {
+    /// The checker's name, as the user writes it and as reports print it: `ty` or `pyrefly`.
+    pub fn name(self) -> &'static str {
+        match self {
+            TypeChecker::Ty => "ty",
+            TypeChecker::Pyrefly => "pyrefly",
+        }
+    }
 }
 
 /// Settings from the `[tool.gawain]` table of `pyproject.toml`. A key that is not a setting is an error, so
@@ -27,6 +48,9 @@ pub struct Config {
     /// The mode when the command line does not give one.
     #[serde(default)]
     pub mode: Mode,
+    /// The type checker when the command line does not give one.
+    #[serde(default)]
+    pub checker: TypeChecker,
 }
 
 #[derive(Deserialize)]
@@ -86,5 +110,35 @@ fn read_if_present(path: &Path) -> Result<Option<String>, ConfigError> {
         Ok(text) => Ok(Some(text)),
         Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
         Err(error) => Err(ConfigError::new(path, error)),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Config, TypeChecker};
+
+    #[test]
+    fn checker_key_selects_pyrefly() {
+        let config: Config = toml::from_str("checker = \"pyrefly\"").expect("valid settings");
+        assert_eq!(config.checker, TypeChecker::Pyrefly);
+    }
+
+    #[test]
+    fn missing_checker_key_selects_ty() {
+        let config: Config = toml::from_str("").expect("empty settings are valid");
+        assert_eq!(config.checker, TypeChecker::Ty);
+    }
+
+    #[test]
+    fn unknown_checker_is_an_error() {
+        let error =
+            toml::from_str::<Config>("checker = \"mypy\"").expect_err("mypy is not a checker");
+        assert!(error.to_string().contains("mypy"), "error was: {error}");
+    }
+
+    #[test]
+    fn checker_names_are_ty_and_pyrefly() {
+        assert_eq!(TypeChecker::Ty.name(), "ty");
+        assert_eq!(TypeChecker::Pyrefly.name(), "pyrefly");
     }
 }

@@ -3,8 +3,9 @@ use std::path::Path;
 
 use serde::Serialize;
 
+use crate::config::TypeChecker;
 use crate::diagnostics::Diagnostic;
-use crate::types_phase::{TypeDiagnostic, TypesRun, WARNING_SEVERITY};
+use crate::types_phase::{Severity, TypeDiagnostic, TypesRun};
 
 /// Writes the report for a terminal, without a trailing newline. `types` is `None` when the types phase
 /// did not run. Each row is written as soon as it is formatted, so the report is never built in memory
@@ -30,18 +31,19 @@ fn write_types_outcome(out: &mut impl Write, types: Option<&TypesRun>) -> io::Re
     }
 }
 
-/// A types run passed when ty printed nothing and did not fail.
+/// A types run passed when the checker printed nothing and did not fail.
 fn types_passed(run: &TypesRun) -> bool {
     run.diagnostics.is_empty() && !run.failed
 }
 
-/// Renders diagnostics as one JSON object with a `presence` array and a `types` array. `types` is
-/// `null` when the types phase did not run.
+/// Renders diagnostics as one JSON object with a `checker` name, a `presence` array and a `types` array.
+/// `checker` and `types` are `null` when the types phase did not run.
 pub fn render_json(
     presence: &[Diagnostic],
     types: Option<&TypesRun>,
 ) -> Result<String, serde_json::Error> {
     let report = JsonReport {
+        checker: types.map(|run| run.checker.name()),
         presence,
         types: types.map(|run| run.diagnostics.as_slice()),
     };
@@ -50,6 +52,7 @@ pub fn render_json(
 
 #[derive(Serialize)]
 struct JsonReport<'a> {
+    checker: Option<&'static str>,
     presence: &'a [Diagnostic],
     types: Option<&'a [TypeDiagnostic]>,
 }
@@ -64,7 +67,15 @@ fn write_presence(out: &mut impl Write, diags: &[Diagnostic]) -> io::Result<()> 
 }
 
 fn write_types(out: &mut impl Write, run: &TypesRun) -> io::Result<()> {
-    write_section(out, "[types]", &run.diagnostics, &types_summary(run))
+    let rows: Vec<TypeRow<'_>> = run
+        .diagnostics
+        .iter()
+        .map(|diagnostic| TypeRow {
+            checker: run.checker,
+            diagnostic,
+        })
+        .collect();
+    write_section(out, "[types]", &rows, &types_summary(run))
 }
 
 /// Counts the errors and the warnings of a types run, and names each count that is not zero.
@@ -72,7 +83,7 @@ fn types_summary(run: &TypesRun) -> String {
     let warnings = run
         .diagnostics
         .iter()
-        .filter(|diag| diag.severity == WARNING_SEVERITY)
+        .filter(|diag| diag.severity == Severity::Warning)
         .count();
     let errors = run.diagnostics.len() - warnings;
     let parts: Vec<String> = [
@@ -83,7 +94,7 @@ fn types_summary(run: &TypesRun) -> String {
     .flatten()
     .collect();
     if parts.is_empty() {
-        "ty failed without diagnostics (types).".to_string()
+        format!("{} failed without diagnostics (types).", run.checker.name())
     } else {
         format!("{} (types).", parts.join(", "))
     }
@@ -125,21 +136,33 @@ impl Row for Diagnostic {
     }
 }
 
-impl Row for TypeDiagnostic {
+/// A diagnostic of the types phase as a row. Its text starts with the checker's name, such as `ty[rule]`.
+struct TypeRow<'a> {
+    checker: TypeChecker,
+    diagnostic: &'a TypeDiagnostic,
+}
+
+impl Row for TypeRow<'_> {
     fn path(&self) -> &Path {
-        &self.path
+        &self.diagnostic.path
     }
 
     fn line(&self) -> u32 {
-        self.line
+        self.diagnostic.line
     }
 
     fn col(&self) -> u32 {
-        self.col
+        self.diagnostic.col
     }
 
     fn write_text(&self, out: &mut dyn Write) -> io::Result<()> {
-        write!(out, "ty[{}] {}", self.rule, self.message)
+        write!(
+            out,
+            "{}[{}] {}",
+            self.checker.name(),
+            self.diagnostic.rule,
+            self.diagnostic.message
+        )
     }
 }
 

@@ -4,7 +4,7 @@ use std::process::ExitCode;
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
 
-use gawain::config::Mode;
+use gawain::config::{Mode, TypeChecker};
 use gawain::diagnostics::Diagnostic;
 use gawain::presence;
 use gawain::types_phase::{self, TypesError, TypesRun};
@@ -33,7 +33,7 @@ struct CheckArgs {
     #[arg(required = true, value_name = "PATHS")]
     paths: Vec<PathBuf>,
 
-    /// Skip the types phase, which runs ty on the files once presence is clean
+    /// Skip the types phase, which runs the type checker on the files once presence is clean
     #[arg(long)]
     no_types: bool,
 
@@ -44,6 +44,10 @@ struct CheckArgs {
     /// How obvious values are judged. Overrides `mode` in `[tool.gawain]`
     #[arg(long, value_enum)]
     mode: Option<Mode>,
+
+    /// The type checker for the types phase. Overrides `checker` in `[tool.gawain]`
+    #[arg(long, value_enum)]
+    checker: Option<TypeChecker>,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -84,9 +88,9 @@ fn run() -> ExitCode {
     }
 }
 
-/// Exit status: 0 when nothing is reported or ty reports only warnings, 1 when presence finds a problem
-/// (a file that cannot be read or parsed, or a directory that cannot be walked, counts) or ty reports an
-/// error, 2 on usage or when ty cannot run.
+/// Exit status: 0 when nothing is reported or the type checker reports only warnings, 1 when presence finds
+/// a problem (a file that cannot be read or parsed, or a directory that cannot be walked, counts) or the
+/// type checker reports an error, 2 on usage or when the type checker cannot run.
 fn run_check(args: CheckArgs) -> ExitCode {
     match check(args) {
         Ok(status) => status,
@@ -98,20 +102,22 @@ fn run_check(args: CheckArgs) -> ExitCode {
 }
 
 /// Runs the presence phase, then the types phase when it is due, and prints the report. A usage error
-/// or a ty that cannot run is returned as the message to print.
+/// or a type checker that cannot run is returned as the message to print.
 fn check(args: CheckArgs) -> Result<ExitCode, String> {
     let CheckArgs {
         paths,
         no_types,
         format,
         mode,
+        checker,
     } = args;
 
     ensure_paths_exist(&paths)?;
     let config = config::load().map_err(|error| format!("gawain: {error}"))?;
     let mode = mode.unwrap_or(config.mode);
+    let checker = checker.unwrap_or(config.checker);
     let found = discover(&paths, &config.exclude);
-    let (presence, types) = run_phases(found, no_types, mode)?;
+    let (presence, types) = run_phases(found, no_types, mode, checker)?;
     Ok(print_report(&presence, types.as_ref(), format))
 }
 
@@ -131,11 +137,12 @@ fn run_phases(
     found: discovery::Discovery,
     no_types: bool,
     mode: Mode,
+    checker: TypeChecker,
 ) -> Result<(Vec<Diagnostic>, Option<TypesRun>), String> {
     let presence = presence::check_files(&found.files, found.errors, mode)
         .map_err(|error| format!("gawain: {error}"))?;
-    let types =
-        run_types_if_due(&found.files, &presence, no_types).map_err(|error| error.to_string())?;
+    let types = run_types_if_due(&found.files, &presence, no_types, checker)
+        .map_err(|error| error.to_string())?;
     Ok((presence, types))
 }
 
@@ -150,17 +157,18 @@ fn ensure_paths_exist(paths: &[PathBuf]) -> Result<(), String> {
     }
 }
 
-/// Runs the types phase on `files` when it is due: presence is clean, `--no-types` is not given, and
-/// there is at least one file. Returns `None` when it is not due.
+/// Runs the types phase with `checker` on `files` when it is due: presence is clean, `--no-types` is not
+/// given, and there is at least one file. Returns `None` when it is not due.
 fn run_types_if_due(
     files: &[PathBuf],
     presence: &[Diagnostic],
     no_types: bool,
+    checker: TypeChecker,
 ) -> Result<Option<TypesRun>, TypesError> {
     if !presence.is_empty() || no_types || files.is_empty() {
         return Ok(None);
     }
-    types_phase::run(files).map(Some)
+    types_phase::run(checker, files).map(Some)
 }
 
 /// Prints the report in `format` and returns the exit status for it.
@@ -217,7 +225,7 @@ fn output_error(error: io::Error) -> String {
     format!("gawain: cannot write output: {error}")
 }
 
-/// Success when presence is clean and ty did not fail, and 1 otherwise.
+/// Success when presence is clean and the type checker did not fail, and 1 otherwise.
 fn exit_status(presence: &[Diagnostic], types: Option<&TypesRun>) -> ExitCode {
     let types_failed = types.is_some_and(|run| run.failed);
     if presence.is_empty() && !types_failed {

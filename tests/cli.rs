@@ -12,6 +12,7 @@ const FULLY_ANNOTATED: &str = concat!(
     "/tests/fixtures/fully_annotated.py"
 );
 const TY_NOT_FOUND: &str = "gawain: ty not found; install gawain with pip/uv (it depends on ty==0.0.100) or put ty on PATH";
+const PYREFLY_NOT_FOUND: &str = "gawain: pyrefly not found; install gawain[pyrefly] (it depends on pyrefly==1.4.1) or put pyrefly on PATH";
 /// One `minor` warning as ty 0.0.100 prints it in gitlab format.
 #[cfg(unix)]
 const MINOR_WARNING: &str = r#"[{"check_name":"deprecated","description":"deprecated: The function `f` is deprecated: use g","severity":"minor","fingerprint":"901c3ffc76ecb125","location":{"path":"x.py","positions":{"begin":{"line":1,"column":5},"end":{"line":1,"column":6}}}}]"#;
@@ -52,7 +53,23 @@ fn path_with_venv() -> OsString {
         "no ty in {}: run `uv pip install --python .venv ty==0.0.100`",
         bin.display()
     );
-    let mut dirs = vec![bin];
+    path_with_first(bin)
+}
+
+/// PATH with the project venv first, so gawain finds pyrefly 1.4.1 there before any other pyrefly.
+fn path_with_venv_pyrefly() -> OsString {
+    let bin = venv_bin();
+    assert!(
+        bin.join("pyrefly").is_file(),
+        "no pyrefly in {}: run `uv pip install --python .venv pyrefly==1.4.1`",
+        bin.display()
+    );
+    path_with_first(bin)
+}
+
+/// This process's PATH with `dir` in front of it.
+fn path_with_first(dir: PathBuf) -> OsString {
+    let mut dirs = vec![dir];
     if let Some(current) = std::env::var_os("PATH") {
         dirs.extend(std::env::split_paths(&current));
     }
@@ -62,11 +79,23 @@ fn path_with_venv() -> OsString {
 /// A directory holding an executable `ty` shell script whose commands are `body`.
 #[cfg(unix)]
 fn fake_ty_dir(body: &str) -> PathBuf {
+    fake_binary_dir("ty", body)
+}
+
+/// A directory holding an executable `pyrefly` shell script whose commands are `body`.
+#[cfg(unix)]
+fn fake_pyrefly_dir(body: &str) -> PathBuf {
+    fake_binary_dir("pyrefly", body)
+}
+
+/// A directory holding an executable shell script called `name` whose commands are `body`.
+#[cfg(unix)]
+fn fake_binary_dir(name: &str, body: &str) -> PathBuf {
     use std::os::unix::fs::PermissionsExt;
 
-    let dir = unique_temp_path("fake-ty");
+    let dir = unique_temp_path(&format!("fake-{name}"));
     fs::create_dir_all(&dir).expect("temp directory is creatable");
-    let script = dir.join("ty");
+    let script = dir.join(name);
     fs::write(&script, format!("#!/bin/sh\n{body}\n")).expect("temp file is writable");
     fs::set_permissions(&script, fs::Permissions::from_mode(0o755)).expect("script is executable");
     dir
@@ -97,6 +126,75 @@ fn run_with_fake_ty(body: &str, contents: &str) -> Output {
     fs::remove_file(&path).expect("temp file is removable");
     fs::remove_dir_all(&dir).expect("temp directory is removable");
     output
+}
+
+/// One item of pyrefly's JSON output, at line 1, column 10 of `x.py`, with the given rule `name` and
+/// `severity`. Its text has no single quote, so a fake pyrefly can echo it.
+#[cfg(unix)]
+fn pyrefly_one_item(name: &str, severity: &str) -> String {
+    pyrefly_item_at("x.py", name, severity)
+}
+
+/// One item of pyrefly's JSON output, at line 1, column 10 of the file that pyrefly names `path`.
+#[cfg(unix)]
+fn pyrefly_item_at(path: &str, name: &str, severity: &str) -> String {
+    format!(
+        r#"{{"errors": [{{"line": 1, "column": 10, "stop_line": 1, "stop_column": 13, "path": "{path}", "code": -2, "name": "{name}", "description": "`str` is not assignable to `int`", "concise_description": "`str` is not assignable to `int`", "severity": "{severity}"}}]}}"#
+    )
+}
+
+/// Runs gawain with `--checker pyrefly` on one file holding `contents`, with a fake pyrefly whose script
+/// runs `body`.
+#[cfg(unix)]
+fn run_with_fake_pyrefly(body: &str, contents: &str) -> Output {
+    let dir = fake_pyrefly_dir(body);
+    let path = temp_python_file(contents);
+    let output = gawain()
+        .env("PATH", path_only(&dir))
+        .args(["check", "--checker", "pyrefly"])
+        .arg(&path)
+        .output()
+        .expect("gawain runs");
+    fs::remove_file(&path).expect("temp file is removable");
+    fs::remove_dir_all(&dir).expect("temp directory is removable");
+    output
+}
+
+/// The arguments that gawain passes to pyrefly when it checks `file`. A fake pyrefly records them, one per
+/// line, and prints an empty report.
+#[cfg(unix)]
+fn pyrefly_args_for(file: &Path) -> Vec<String> {
+    recorded_pyrefly_args(None, file)
+}
+
+/// The arguments that gawain passes to pyrefly when it checks `file` from the working directory `cwd`, or from
+/// the test's own working directory when `cwd` is `None`. The fake pyrefly records them, one per line.
+#[cfg(unix)]
+fn recorded_pyrefly_args(cwd: Option<&Path>, file: &Path) -> Vec<String> {
+    let args_file = unique_temp_path("pyrefly-args.txt");
+    let body = format!(
+        r#"printf '%s\n' "$@" > '{}'; echo '{{"errors": []}}'"#,
+        args_file.display()
+    );
+    let dir = fake_pyrefly_dir(&body);
+    let mut command = gawain();
+    command
+        .env("PATH", path_only(&dir))
+        .args(["check", "--checker", "pyrefly"]);
+    if let Some(cwd) = cwd {
+        command.current_dir(cwd);
+    }
+    let output = command.arg(file).output().expect("gawain runs");
+    let recorded = fs::read_to_string(&args_file).expect("fake pyrefly recorded its arguments");
+    fs::remove_file(&args_file).expect("argument file is removable");
+    fs::remove_dir_all(&dir).expect("temp directory is removable");
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "stderr was: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    recorded.lines().map(str::to_owned).collect()
 }
 
 /// Parses gawain's JSON output, which is one object with `presence` and `types`.
@@ -729,14 +827,20 @@ fn json_output_has_presence_and_types_sections() {
     fs::remove_file(&path).expect("temp file is removable");
 
     assert_eq!(output.status.code(), Some(1));
+    let text = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        text.starts_with("{\n  \"checker\": \"ty\",\n  \"presence\": "),
+        "stdout was: {text}"
+    );
     let report = json_report(&output.stdout);
+    assert_eq!(report["checker"], "ty");
     assert_eq!(report["presence"], json!([]));
     let types = report["types"].as_array().expect("types is an array");
     assert_eq!(types.len(), 1, "types were: {types:?}");
     assert_eq!(types[0]["rule"], "invalid-assignment");
     assert_eq!(types[0]["line"], 1);
     assert_eq!(types[0]["col"], 10);
-    assert_eq!(types[0]["severity"], "major");
+    assert_eq!(types[0]["severity"], "error");
 }
 
 #[test]
@@ -748,8 +852,136 @@ fn json_types_is_null_with_no_types() {
 
     assert_eq!(output.status.code(), Some(0));
     let report = json_report(&output.stdout);
+    assert!(report.get("checker").is_some_and(Value::is_null));
     assert_eq!(report["presence"], json!([]));
     assert_eq!(report["types"], Value::Null);
+}
+
+#[cfg(unix)]
+#[test]
+fn json_types_severity_is_error_or_warning() {
+    let body = r#"printf '%s\n' '[{"check_name":"invalid-assignment","description":"invalid-assignment: bad","severity":"major","location":{"path":"x.py","positions":{"begin":{"line":1,"column":1}}}},{"check_name":"deprecated","description":"deprecated: old","severity":"minor","location":{"path":"x.py","positions":{"begin":{"line":2,"column":1}}}}]'; exit 1"#;
+    let dir = fake_ty_dir(body);
+    let path = temp_python_file("y: int = 1\n");
+    let output = gawain()
+        .env("PATH", path_only(&dir))
+        .args(["check", "--format", "json"])
+        .arg(&path)
+        .output()
+        .expect("gawain runs");
+    fs::remove_file(&path).expect("temp file is removable");
+    fs::remove_dir_all(&dir).expect("temp directory is removable");
+
+    let report = json_report(&output.stdout);
+    assert_eq!(report["types"][0]["severity"], "error");
+    assert_eq!(report["types"][1]["severity"], "warning");
+}
+
+#[test]
+fn unknown_checker_on_the_command_line_is_a_usage_error() {
+    let output = gawain()
+        .args(["check", "--checker", "mypy"])
+        .arg(FULLY_ANNOTATED)
+        .output()
+        .expect("gawain runs");
+
+    assert_eq!(output.status.code(), Some(2));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("mypy"), "stderr was: {stderr}");
+}
+
+#[cfg(unix)]
+#[test]
+fn checker_flag_ty_runs_ty() {
+    let dir = fake_ty_dir("echo '[]'");
+    let path = temp_python_file("y: int = 1\n");
+    let output = gawain()
+        .env("PATH", path_only(&dir))
+        .args(["check", "--checker", "ty"])
+        .arg(&path)
+        .output()
+        .expect("gawain runs");
+    fs::remove_file(&path).expect("temp file is removable");
+    fs::remove_dir_all(&dir).expect("temp directory is removable");
+
+    assert_eq!(output.status.code(), Some(0));
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "All checks passed (presence, types).\n"
+    );
+}
+
+#[test]
+fn config_checker_pyrefly_without_pyrefly_is_a_usage_error() {
+    let dir = temp_dir_with(
+        "config-pyrefly",
+        &[
+            ("pyproject.toml", b"[tool.gawain]\nchecker = \"pyrefly\"\n"),
+            ("case.py", b"y: int = 1\n"),
+        ],
+    );
+    let empty = unique_temp_path("no-pyrefly");
+    fs::create_dir_all(&empty).expect("temp directory is creatable");
+    let output = gawain()
+        .current_dir(&dir)
+        .env("PATH", &empty)
+        .args(["check", "case.py"])
+        .output()
+        .expect("gawain runs");
+    fs::remove_dir_all(&dir).expect("temp directory is removable");
+    fs::remove_dir_all(&empty).expect("temp directory is removable");
+
+    assert_eq!(output.status.code(), Some(2));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains(PYREFLY_NOT_FOUND), "stderr was: {stderr}");
+}
+
+#[test]
+fn config_checker_that_is_unknown_is_a_usage_error() {
+    let dir = temp_dir_with(
+        "config-mypy",
+        &[
+            ("pyproject.toml", b"[tool.gawain]\nchecker = \"mypy\"\n"),
+            ("case.py", b"y: int = 1\n"),
+        ],
+    );
+    let output = gawain()
+        .current_dir(&dir)
+        .args(["check", "case.py"])
+        .output()
+        .expect("gawain runs");
+    fs::remove_dir_all(&dir).expect("temp directory is removable");
+
+    assert_eq!(output.status.code(), Some(2));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("mypy"), "stderr was: {stderr}");
+}
+
+#[cfg(unix)]
+#[test]
+fn checker_flag_overrides_the_config_checker() {
+    let dir = temp_dir_with(
+        "override-checker",
+        &[
+            ("pyproject.toml", b"[tool.gawain]\nchecker = \"pyrefly\"\n"),
+            ("case.py", b"y: int = 1\n"),
+        ],
+    );
+    let ty_dir = fake_ty_dir("echo '[]'");
+    let output = gawain()
+        .current_dir(&dir)
+        .env("PATH", path_only(&ty_dir))
+        .args(["check", "--checker", "ty", "case.py"])
+        .output()
+        .expect("gawain runs");
+    fs::remove_dir_all(&dir).expect("temp directory is removable");
+    fs::remove_dir_all(&ty_dir).expect("temp directory is removable");
+
+    assert_eq!(output.status.code(), Some(0));
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "All checks passed (presence, types).\n"
+    );
 }
 
 #[test]
@@ -1010,6 +1242,298 @@ fn ty_killed_by_a_signal_fails_with_exit_2() {
     assert!(
         stderr.contains("gawain: ty failed (exit signal):"),
         "stderr was: {stderr}"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn fake_pyrefly_with_no_errors_passes() {
+    let output = run_with_fake_pyrefly(r#"echo '{"errors": []}'"#, "y: int = 1\n");
+
+    assert_eq!(output.status.code(), Some(0));
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "All checks passed (presence, types).\n"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn fake_pyrefly_error_fails_the_types_phase() {
+    let body = format!(
+        "echo '{}'; exit 1",
+        pyrefly_one_item("bad-assignment", "error")
+    );
+    let output = run_with_fake_pyrefly(&body, "y: int = 1\n");
+
+    assert_eq!(output.status.code(), Some(1));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("x.py:1:10  pyrefly[bad-assignment] `str` is not assignable to `int`"),
+        "stdout was: {stdout}"
+    );
+    assert!(stdout.contains("1 error (types)."), "stdout was: {stdout}");
+}
+
+#[cfg(unix)]
+#[test]
+fn fake_pyrefly_warning_is_shown_and_passes() {
+    let body = format!("echo '{}'; exit 1", pyrefly_one_item("deprecated", "warn"));
+    let output = run_with_fake_pyrefly(&body, "y: int = 1\n");
+
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("x.py:1:10  pyrefly[deprecated] `str` is not assignable to `int`"),
+        "stdout was: {stdout}"
+    );
+    assert!(
+        stdout.contains("1 warning (types)."),
+        "stdout was: {stdout}"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn fake_pyrefly_with_an_unexpected_exit_code_fails_with_exit_2() {
+    let output = run_with_fake_pyrefly("exit 3", "y: int = 1\n");
+
+    assert_eq!(output.status.code(), Some(2));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("gawain: pyrefly failed (exit 3)"),
+        "stderr was: {stderr}"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn fake_pyrefly_with_output_that_is_not_json_fails_with_exit_2() {
+    let output = run_with_fake_pyrefly("echo 'not json'", "y: int = 1\n");
+
+    assert_eq!(output.status.code(), Some(2));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("gawain: pyrefly failed (exit 0)"),
+        "stderr was: {stderr}"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn pyrefly_gets_json_flags_and_the_file_after_a_double_dash() {
+    // The temp directory holds no pyrefly config, so gawain adds `--preset default`.
+    let path = temp_python_file("y: int = 1\n");
+    let args = pyrefly_args_for(&path);
+    fs::remove_file(&path).expect("temp file is removable");
+
+    assert_eq!(
+        args,
+        [
+            "check",
+            "--output-format",
+            "json",
+            "--summary=none",
+            "--min-severity",
+            "warn",
+            "--preset",
+            "default",
+            "--",
+            path.to_str().expect("temp path is UTF-8"),
+        ]
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn pyrefly_toml_beside_the_file_means_no_preset_flag() {
+    let dir = temp_dir_with(
+        "pyrefly-toml-beside",
+        &[("pyrefly.toml", b""), ("case.py", b"y: int = 1\n")],
+    );
+    let path = dir.join("case.py");
+    let args = pyrefly_args_for(&path);
+    fs::remove_dir_all(&dir).expect("temp directory is removable");
+
+    assert_eq!(
+        args,
+        [
+            "check",
+            "--output-format",
+            "json",
+            "--summary=none",
+            "--min-severity",
+            "warn",
+            "--",
+            path.to_str().expect("temp path is UTF-8"),
+        ]
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn pyproject_with_a_pyrefly_table_means_no_preset_flag() {
+    let dir = temp_dir_with(
+        "pyrefly-table-beside",
+        &[
+            ("pyproject.toml", b"[tool.pyrefly]\n"),
+            ("case.py", b"y: int = 1\n"),
+        ],
+    );
+    let path = dir.join("case.py");
+    let args = pyrefly_args_for(&path);
+    fs::remove_dir_all(&dir).expect("temp directory is removable");
+
+    assert_eq!(
+        args,
+        [
+            "check",
+            "--output-format",
+            "json",
+            "--summary=none",
+            "--min-severity",
+            "warn",
+            "--",
+            path.to_str().expect("temp path is UTF-8"),
+        ]
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn pyrefly_config_in_the_working_directory_does_not_cover_a_sibling_directory() {
+    let root = temp_tree(
+        "sibling-config",
+        &[
+            ("app/pyproject.toml", "[tool.pyrefly]\n"),
+            ("other/x.py", "y: int = 1\n"),
+        ],
+    );
+    let args = recorded_pyrefly_args(Some(&root.join("app")), Path::new("../other/x.py"));
+    fs::remove_dir_all(&root).expect("temp directory is removable");
+
+    assert_eq!(
+        args,
+        [
+            "check",
+            "--output-format",
+            "json",
+            "--summary=none",
+            "--min-severity",
+            "warn",
+            "--preset",
+            "default",
+            "--",
+            "../other/x.py",
+        ]
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn pyrefly_path_is_mapped_back_to_the_absolute_file_that_was_passed() {
+    let root = fs::canonicalize(temp_tree(
+        "absolute-passed",
+        &[("other/x.py", "y: int = 1\n")],
+    ))
+    .expect("temp directory is canonical");
+    let app = root.join("app");
+    fs::create_dir_all(&app).expect("temp directory is creatable");
+    let file = root.join("other/x.py");
+    // pyrefly prints the file relative to its working directory, which is `app`.
+    let body = format!(
+        "echo '{}'; exit 1",
+        pyrefly_item_at("../other/x.py", "bad-assignment", "error")
+    );
+    let dir = fake_pyrefly_dir(&body);
+    let output = gawain()
+        .current_dir(&app)
+        .env("PATH", path_only(&dir))
+        .args(["check", "--checker", "pyrefly"])
+        .arg(&file)
+        .output()
+        .expect("gawain runs");
+    fs::remove_dir_all(&root).expect("temp directory is removable");
+    fs::remove_dir_all(&dir).expect("temp directory is removable");
+
+    assert_eq!(output.status.code(), Some(1));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let row = format!("{}:1:10  pyrefly[bad-assignment]", file.display());
+    assert!(
+        stdout.lines().any(|line| line.starts_with(&row)),
+        "stdout was: {stdout}"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn pyrefly_next_to_gawain_is_used_before_path() {
+    let beside = fake_pyrefly_dir(r#"echo '{"errors": []}'"#);
+    fs::copy(env!("CARGO_BIN_EXE_gawain"), beside.join("gawain")).expect("gawain is copyable");
+    let empty = unique_temp_path("no-pyrefly");
+    fs::create_dir_all(&empty).expect("temp directory is creatable");
+    let path = temp_python_file("y: int = 1\n");
+
+    let output = Command::new(beside.join("gawain"))
+        .env("PATH", &empty)
+        .args(["check", "--checker", "pyrefly"])
+        .arg(&path)
+        .output()
+        .expect("gawain runs");
+    fs::remove_file(&path).expect("temp file is removable");
+    fs::remove_dir_all(&beside).expect("temp directory is removable");
+    fs::remove_dir_all(&empty).expect("temp directory is removable");
+
+    assert_eq!(output.status.code(), Some(0));
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "All checks passed (presence, types).\n"
+    );
+}
+
+#[test]
+fn real_pyrefly_reports_a_bad_return() {
+    let path = temp_python_file("def total(prices: list[int]) -> int:\n    return \"0\"\n");
+    let output = gawain()
+        .env("PATH", path_with_venv_pyrefly())
+        .args(["check", "--checker", "pyrefly"])
+        .arg(&path)
+        .output()
+        .expect("gawain runs");
+    fs::remove_file(&path).expect("temp file is removable");
+
+    assert_eq!(output.status.code(), Some(1));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("pyrefly[bad-return]"),
+        "stdout was: {stdout}"
+    );
+}
+
+#[test]
+fn real_pyrefly_reports_a_file_in_a_sibling_directory_under_the_path_passed() {
+    // The working directory holds a pyrefly config, so the walk from `../b` must not take it for `b`'s config.
+    let root = temp_tree(
+        "real-sibling",
+        &[
+            ("a/pyproject.toml", "[tool.pyrefly]\n"),
+            ("b/bad.py", "x: int = \"a\"\n"),
+        ],
+    );
+    let app = root.join("a");
+    let output = gawain()
+        .current_dir(&app)
+        .env("PATH", path_with_venv_pyrefly())
+        .args(["check", "--checker", "pyrefly", "../b/bad.py"])
+        .output()
+        .expect("gawain runs");
+    fs::remove_dir_all(&root).expect("temp directory is removable");
+
+    assert_eq!(output.status.code(), Some(1));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("../b/bad.py:1:10  pyrefly[bad-assignment]"),
+        "stdout was: {stdout}"
     );
 }
 
