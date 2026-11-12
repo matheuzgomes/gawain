@@ -91,17 +91,19 @@ jobs:
       - name: Install the built wheel and run it on a clean file and on a file with a missing annotation
         run: |
           uv venv --python 3.14 .venv
-          uv pip install --python .venv ty==0.0.100
+          uv pip install --python .venv ty==0.0.100 pyrefly==1.4.1
           uv pip install --python .venv --no-index --find-links dist gawain
           if [ -d .venv/Scripts ]; then bin=.venv/Scripts; else bin=.venv/bin; fi
           export PATH="$PWD/$bin:$PATH"
           mkdir -p smoke/clean smoke/dirty
           printf 'def add(a: int, b: int) -> int:\n    return a + b\n' > smoke/clean/ok.py
           printf 'total = sum([1, 2])\n' > smoke/dirty/bad.py
-          gawain check smoke/clean
-          status=0
-          gawain check smoke/dirty || status=$?
-          test "$status" -eq 1
+          for checker in ty pyrefly; do
+            gawain check --checker "$checker" smoke/clean
+            status=0
+            gawain check --checker "$checker" smoke/dirty || status=$?
+            test "$status" -eq 1
+          done
 
   test-musl:
     name: Install and run (musl, ${{ matrix.runner }})
@@ -121,16 +123,18 @@ jobs:
         run: |
           docker run --rm -v "$PWD/dist:/dist:ro" python:3.14-alpine sh -euc '
             python -m venv /venv
-            /venv/bin/pip install --quiet ty==0.0.100
+            /venv/bin/pip install --quiet ty==0.0.100 pyrefly==1.4.1
             /venv/bin/pip install --quiet --no-index --find-links /dist gawain
             export PATH="/venv/bin:$PATH"
             mkdir -p /smoke/clean /smoke/dirty
             printf "def add(a: int, b: int) -> int:\n    return a + b\n" > /smoke/clean/ok.py
             printf "total = sum([1, 2])\n" > /smoke/dirty/bad.py
-            gawain check /smoke/clean
-            status=0
-            gawain check /smoke/dirty || status=$?
-            test "$status" -eq 1
+            for checker in ty pyrefly; do
+              gawain check --checker "$checker" /smoke/clean
+              status=0
+              gawain check --checker "$checker" /smoke/dirty || status=$?
+              test "$status" -eq 1
+            done
           '
 
   publish-pypi:

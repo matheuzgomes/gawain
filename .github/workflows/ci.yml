@@ -33,10 +33,10 @@ jobs:
           components: clippy, rustfmt
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
-      - name: Install ty into .venv
+      - name: Install ty and pyrefly into .venv
         run: |
           uv venv --python 3.14 .venv
-          uv pip install --python .venv ty==0.0.100
+          uv pip install --python .venv ty==0.0.100 pyrefly==1.4.1
       - run: cargo fmt --check
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test --no-fail-fast
@@ -77,12 +77,14 @@ jobs:
       - name: Run gawain on a clean file and on a file with a missing annotation
         run: |
           uv venv --python 3.14 .venv
-          uv pip install --python .venv ty==0.0.100
+          uv pip install --python .venv ty==0.0.100 pyrefly==1.4.1
           export PATH="$PWD/.venv/Scripts:$PATH"
           mkdir -p smoke/clean smoke/dirty
           printf 'def add(a: int, b: int) -> int:\n    return a + b\n' > smoke/clean/ok.py
           printf 'total = sum([1, 2])\n' > smoke/dirty/bad.py
-          target/release/gawain.exe check smoke/clean
-          status=0
-          target/release/gawain.exe check smoke/dirty || status=$?
-          test "$status" -eq 1
+          for checker in ty pyrefly; do
+            target/release/gawain.exe check --checker "$checker" smoke/clean
+            status=0
+            target/release/gawain.exe check --checker "$checker" smoke/dirty || status=$?
+            test "$status" -eq 1
+          done
