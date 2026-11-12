@@ -39,7 +39,7 @@ jobs:
           uv pip install --python .venv ty==0.0.100
       - run: cargo fmt --check
       - run: cargo clippy --all-targets -- -D warnings
-      - run: cargo test
+      - run: cargo test --no-fail-fast
 
   python:
     name: Differential tests and self-check

@@ -1013,7 +1013,8 @@ fn ty_killed_by_a_signal_fails_with_exit_2() {
     );
 }
 
-#[cfg(unix)]
+// macOS (APFS) refuses file names that are not UTF-8, so such a path cannot reach gawain there.
+#[cfg(all(unix, not(target_os = "macos")))]
 #[test]
 fn json_for_a_path_that_is_not_utf8_is_an_error() {
     use std::ffi::OsStr;
