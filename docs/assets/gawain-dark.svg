@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" role="img" aria-labelledby="title">
+  <title id="title">gawain: a green axe with a green girdle tied to its haft</title>
+  <g transform="rotate(25 60 62)">
+    <rect x="56" y="8" width="8" height="106" rx="4" fill="#ECE8E1"/>
+    <path d="M64 22 C72 20 80 14 88 8 C100 22 104 40 102 56 C100 70 94 80 86 86 C82 74 74 64 64 58 Z" fill="#4A8F57"/>
+    <path d="M88 8 C100 22 104 40 102 56 C100 70 94 80 86 86" stroke="#9CCB84" stroke-width="4" stroke-linecap="round" fill="none"/>
+    <rect x="54" y="16" width="12" height="5" rx="1.5" fill="#E0B84A"/>
+    <rect x="54" y="60" width="12" height="5" rx="1.5" fill="#E0B84A"/>
+    <path d="M58 89 C52 98 50 106 44 114 M62 89 C68 98 72 104 80 110" stroke="#4A8F57" stroke-width="5" stroke-linecap="round" fill="none"/>
+    <path d="M58 89 C52 98 50 106 44 114 M62 89 C68 98 72 104 80 110" stroke="#E0B84A" stroke-width="1.2" stroke-linecap="round" fill="none"/>
+    <rect x="53" y="80" width="14" height="10" rx="3" fill="#4A8F57"/>
+    <path d="M55 85 H65" stroke="#E0B84A" stroke-width="1.2" stroke-linecap="round"/>
+  </g>
+</svg>
