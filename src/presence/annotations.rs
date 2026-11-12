@@ -6,7 +6,6 @@ use std::borrow::Cow;
 use ruff_python_ast::Expr;
 use ruff_python_parser::parse_expression;
 
-/// How an annotation spells `Final`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FinalForm {
     /// Any annotation that is not `Final`, including a string that does not parse.
@@ -17,7 +16,6 @@ pub enum FinalForm {
     Typed,
 }
 
-/// Classifies an annotation by its `Final` form.
 pub fn final_form(annotation: &Expr) -> FinalForm {
     annotation_expr(annotation).map_or(FinalForm::NotFinal, |expr| classify_final(&expr))
 }
@@ -35,8 +33,8 @@ fn classify_final(expr: &Expr) -> FinalForm {
     }
 }
 
-/// The expression an annotation stands for. A string annotation stands for the expression its
-/// content parses to, and nothing at all when the content does not parse.
+/// A string annotation stands for the expression its content parses to, and nothing at all when the content does not
+/// parse.
 fn annotation_expr(annotation: &Expr) -> Option<Cow<'_, Expr>> {
     match annotation {
         Expr::StringLiteral(literal) => {
@@ -47,7 +45,6 @@ fn annotation_expr(annotation: &Expr) -> Option<Cow<'_, Expr>> {
     }
 }
 
-/// The identifier of a plain name, such as `x` in `x: int`, and `None` for any other expression.
 pub fn plain_name(expr: &Expr) -> Option<&str> {
     match expr {
         Expr::Name(name) => Some(name.id.as_str()),

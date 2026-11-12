@@ -14,7 +14,6 @@ use crate::config::TypeChecker;
 
 use super::{Severity, TypeDiagnostic, TypesError, TypesRun, spawn};
 
-/// pyrefly's output is not the JSON object with an `errors` array that gawain reads.
 #[derive(Debug)]
 pub struct PyreflyOutputError(serde_json::Error);
 
@@ -50,8 +49,8 @@ pub(super) fn run_pyrefly(pyrefly: &Path, files: &[PathBuf]) -> Result<TypesRun,
     interpret_pyrefly(&output, files)
 }
 
-/// Reads pyrefly's output. Exit 0 and 1 are both accepted, because pyrefly exits 1 for warnings too. The run
-/// fails only when one of its items is an error. The paths in the items are mapped back to the files in `files`.
+/// Exit 0 and 1 are both accepted, because pyrefly exits 1 for warnings too. The run fails only when one of its items
+/// is an error.
 fn interpret_pyrefly(output: &Output, files: &[PathBuf]) -> Result<TypesRun, TypesError> {
     if !matches!(output.status.code(), Some(0 | 1)) {
         return Err(TypesError::failed(TypeChecker::Pyrefly, output));
@@ -68,8 +67,6 @@ fn interpret_pyrefly(output: &Output, files: &[PathBuf]) -> Result<TypesRun, Typ
         failed,
     })
 }
-/// Reads pyrefly's JSON output: one object whose `errors` array has one item per diagnostic. An empty array is a
-/// clean run. An array is not that object, even when it holds one.
 pub fn parse_pyrefly_output(stdout: &str) -> Result<Vec<TypeDiagnostic>, PyreflyOutputError> {
     // A map rejects an array. Reading the report straight from the text would take an array for its fields.
     let object: Map<String, Value> = serde_json::from_str(stdout).map_err(PyreflyOutputError)?;
@@ -82,13 +79,11 @@ pub fn parse_pyrefly_output(stdout: &str) -> Result<Vec<TypeDiagnostic>, Pyrefly
         .collect())
 }
 
-/// pyrefly's JSON report. Fields that gawain does not use are ignored.
 #[derive(Deserialize)]
 struct PyreflyReport {
     errors: Vec<PyreflyItem>,
 }
 
-/// One item of pyrefly's JSON report. Fields that gawain does not use are ignored.
 #[derive(Deserialize)]
 struct PyreflyItem {
     line: u32,
@@ -112,7 +107,6 @@ impl From<PyreflyItem> for TypeDiagnostic {
     }
 }
 
-/// The severity of a pyrefly item: `error` is an error, and `warn` and `info` are warnings.
 fn pyrefly_severity(severity: &str) -> Severity {
     // --min-severity warn means pyrefly prints only error, warn and info, so anything but error is a warning.
     if severity == "error" {
@@ -122,8 +116,8 @@ fn pyrefly_severity(severity: &str) -> Severity {
     }
 }
 
-/// Whether a pyrefly config applies to one of `files`. A config applies to a file when the file's directory, or
-/// a directory above it, holds one. The walk goes over the folded path, so `..` names the directory above.
+/// Whether a pyrefly config applies to one of `files`: the file's directory, or a directory above it, holds
+/// one. The walk goes over the folded path, so `..` names the directory above.
 fn has_pyrefly_config(files: &[PathBuf]) -> bool {
     let mut checked = HashSet::new();
     files
@@ -132,8 +126,7 @@ fn has_pyrefly_config(files: &[PathBuf]) -> bool {
         .any(|dir| has_config_above(&dir, &mut checked))
 }
 
-/// Whether `dir` or a directory above it holds a pyrefly config. A directory in `checked` was walked by an
-/// earlier file and holds no config, so it is not checked again.
+/// A directory in `checked` was walked by an earlier file and holds no config, so it is not checked again.
 fn has_config_above(dir: &Path, checked: &mut HashSet<PathBuf>) -> bool {
     dir.ancestors()
         .any(|ancestor| checked.insert(ancestor.to_path_buf()) && pyrefly_config_in(ancestor))
@@ -149,8 +142,7 @@ fn lexical_absolute(path: &Path) -> PathBuf {
         .fold(PathBuf::new(), fold_component)
 }
 
-/// `folded` with `component` added, except that `..` removes the last component instead. The components of a
-/// path have no `.` in them, because `Path::components` drops those.
+/// The components of a path have no `.` in them, because `Path::components` drops those.
 fn fold_component(mut folded: PathBuf, component: Component<'_>) -> PathBuf {
     if component == Component::ParentDir {
         folded.pop();
@@ -179,7 +171,6 @@ fn restore_paths(
         .collect()
 }
 
-/// `diagnostic` with its path replaced by the passed file that the path names, when one does.
 fn restore_path(
     mut diagnostic: TypeDiagnostic,
     passed: &HashMap<PathBuf, &Path>,
@@ -229,7 +220,6 @@ fn pyrefly_config_in(dir: &Path) -> bool {
     dir.join("pyrefly.toml").is_file() || pyproject_has_pyrefly_table(&dir.join("pyproject.toml"))
 }
 
-/// The parts of a `pyproject.toml` that the pyrefly config check reads.
 #[derive(Deserialize)]
 struct PyProjectTools {
     tool: Option<ToolTables>,
@@ -362,7 +352,6 @@ mod tests {
         }));
     }
 
-    /// A directory in the system temp directory that is removed when the test ends.
     struct TempDir(PathBuf);
 
     impl TempDir {
@@ -377,7 +366,6 @@ mod tests {
             TempDir(path)
         }
 
-        /// Writes `text` to `relative` under this directory, creating parent directories, and returns its path.
         fn file(&self, relative: &str, text: &str) -> PathBuf {
             let path = self.0.join(relative);
             fs::create_dir_all(
@@ -519,7 +507,6 @@ mod tests {
         assert!(!has_pyrefly_config(&[file]));
     }
 
-    /// A diagnostic that pyrefly printed for `path`.
     fn diagnostic_at(path: &str) -> TypeDiagnostic {
         TypeDiagnostic {
             path: PathBuf::from(path),
@@ -531,8 +518,6 @@ mod tests {
         }
     }
 
-    /// The path that gawain gives a diagnostic which pyrefly printed as `printed`, when gawain passed `files`
-    /// from the working directory `cwd`.
     fn restored(printed: &str, files: &[&str], cwd: &str) -> PathBuf {
         let files: Vec<PathBuf> = files.iter().map(PathBuf::from).collect();
         restore_passed_paths(vec![diagnostic_at(printed)], &files, Ok(PathBuf::from(cwd)))

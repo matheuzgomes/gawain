@@ -1,19 +1,14 @@
-//! The scopes that presence walks, and what each one binds. A scope records the first binding of each name
-//! and the earliest binding after it. A plain assignment that starts a name is a candidate for exemption, and
-//! it is settled when its scope closes, because only then is it known whether the name is bound again. A
-//! binding that a nested function makes through `global` or `nonlocal`, and an attribute that a method assigns
-//! through its receiver, are passed up to the scope that they bind.
+//! The scopes that presence walks, and what each one binds. A plain assignment that starts a name is a candidate for
+//! exemption, and it is settled when its scope closes, because only then is it known whether the name is bound again.
 
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 use ruff_text_size::TextSize;
 
-/// What encloses the statement being visited.
 #[derive(Debug, Clone)]
 pub enum ScopeKind {
     Module,
-    /// A class body.
     Class(ClassScope),
     /// A function or lambda body. `receiver` is set for a method body, where attributes are judged.
     Function {
@@ -21,7 +16,6 @@ pub enum ScopeKind {
     },
 }
 
-/// The class whose body a scope is.
 #[derive(Debug, Clone)]
 pub struct ClassScope {
     pub name: String,
@@ -33,21 +27,17 @@ pub struct ClassScope {
     pub declared: Option<Rc<HashSet<String>>>,
 }
 
-/// The first positional parameter of a method, which is `self` or `cls` by convention.
 #[derive(Debug, Clone)]
 pub struct Receiver {
-    /// The parameter's name.
     pub name: String,
     /// The class that the method belongs to, for messages.
     pub class: String,
-    /// Where the class statement starts, which identifies the class in the class index.
     pub start: TextSize,
     /// The attributes that the class declares, or `None` when an ancestor is external. Then no attribute is
     /// judged, but the assignments are still recorded for the class body.
     pub declared: Option<Rc<HashSet<String>>>,
 }
 
-/// A `global` or `nonlocal` declaration: the name refers to a binding in another scope.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Escape {
     Global,
@@ -68,7 +58,6 @@ pub struct Settled {
     pub rebound: Option<TextSize>,
 }
 
-/// A scope that closed: its kind, and its candidates once judged.
 pub struct Closed {
     pub kind: ScopeKind,
     pub settled: Vec<Settled>,
@@ -89,7 +78,6 @@ struct Event {
     notice: Notice,
 }
 
-/// The first binding of a name in a scope, and the earliest binding after it.
 #[derive(Debug, Clone, Copy)]
 struct Bound {
     first: TextSize,
@@ -105,7 +93,6 @@ impl Bound {
     }
 }
 
-/// One namespace and what is bound in it.
 #[derive(Debug)]
 struct Scope {
     kind: ScopeKind,
@@ -126,7 +113,6 @@ impl Scope {
         }
     }
 
-    /// Records a binding of `name` at `offset` in this scope.
     fn note(&mut self, name: &str, offset: TextSize) {
         match self.bound.get_mut(name) {
             Some(bound) => bound.note(offset),
@@ -161,8 +147,7 @@ impl Scope {
         }
     }
 
-    /// Whether a notice of `notice` can bind a name of this scope. A class body is skipped by a `nonlocal`,
-    /// and a `global` binds only the module.
+    /// A class body is skipped by a `nonlocal`, and a `global` binds only the module.
     fn accepts(&self, notice: Notice) -> bool {
         matches!(
             (notice, &self.kind),
@@ -199,8 +184,7 @@ impl Scope {
     }
 }
 
-/// The scopes around the statement being visited, innermost last. The innermost scope is kept apart from the
-/// enclosing ones, so the stack always has a current scope.
+/// The innermost scope is kept apart from the enclosing ones, so the stack always has a current scope.
 #[derive(Debug)]
 pub struct ScopeStack {
     current: Scope,
@@ -208,7 +192,6 @@ pub struct ScopeStack {
 }
 
 impl Default for ScopeStack {
-    /// A stack holding only the module scope.
     fn default() -> Self {
         Self {
             current: Scope::new(ScopeKind::Module),
@@ -218,14 +201,12 @@ impl Default for ScopeStack {
 }
 
 impl ScopeStack {
-    /// Enters a scope of `kind`, which starts with no names bound.
     pub fn push(&mut self, kind: ScopeKind) {
         let outer = std::mem::replace(&mut self.current, Scope::new(kind));
         self.enclosing.push(outer);
     }
 
-    /// Leaves the innermost scope and settles its candidates. The module scope is closed last, and then
-    /// nothing is passed on.
+    /// The module scope is closed last, and then nothing is passed on.
     pub fn close(&mut self) -> Closed {
         match self.enclosing.pop() {
             Some(outer) => {
@@ -257,17 +238,14 @@ impl ScopeStack {
         }
     }
 
-    /// Declares `name` as `global` or `nonlocal` in the current scope.
     pub fn declare(&mut self, name: &str, escape: Escape) {
         self.current.declared.insert(name.to_owned(), escape);
     }
 
-    /// Records that a method assigns `attribute` through its receiver, for the class around the method.
     pub fn note_receiver_assignment(&mut self, attribute: &str, offset: TextSize) {
         self.notify_outer(attribute, offset, Notice::Attribute);
     }
 
-    /// Records that the current scope is a plain assignment of `name` that may be exempt from an annotation.
     pub fn add_candidate(&mut self, name: &str, offset: TextSize) {
         self.current.candidates.push(Candidate {
             name: name.to_owned(),

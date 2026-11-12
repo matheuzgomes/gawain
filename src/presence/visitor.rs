@@ -1,8 +1,4 @@
-//! Walks a parsed module and reports GW001 (variable without annotation), GW002 (parameter without
-//! annotation), GW003 (function without return annotation), GW004 (class attribute or instance attribute
-//! without a declaration), GW010 (constant without `Final[T]`) and GW011 (bare `Final`). In obvious mode, the
-//! first plain assignment of an obvious value is exempt from GW001 and GW004 unless its name is bound again,
-//! and an obvious value is exempt from GW011.
+//! Walks a parsed module and reports the presence diagnostics.
 
 use std::path::Path;
 use std::rc::Rc;
@@ -37,17 +33,13 @@ const TYPE_DECLARATION_CALLEES: [&str; 6] = [
     "TypedDict",
 ];
 
-/// What the visitor finds in one module.
 pub struct ModuleJudgement {
-    /// The presence diagnostics of the module, in the order they are found.
     pub diagnostics: Vec<Diagnostic>,
     /// The class bodies that have exempt assignments, with the names those assignments declare.
     pub exempt: Vec<ExemptAttributes>,
 }
 
-/// The attributes that a class body declares by exempt obvious assignments.
 pub struct ExemptAttributes {
-    /// Where the class statement starts, which identifies the class in the class index.
     pub class_start: TextSize,
     pub names: Vec<String>,
 }
@@ -79,13 +71,11 @@ pub fn check_module(
     }
 }
 
-/// How a plain-name target of an assignment is judged.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Report {
     /// The target binds its name, and needs no annotation of its own: a loop variable, a type declaration, a
     /// name inside an unpacking.
     Silent,
-    /// The target needs an annotation.
     Required,
     /// The value is obvious, so the first binding is exempt unless the name is bound again in its scope.
     Candidate,
@@ -93,13 +83,10 @@ enum Report {
 
 /// An assignment through the receiver of a method, such as `self.x = 1`, with the class that judges it.
 struct ReceiverWrite {
-    /// Where the class statement starts, which identifies the class.
     class_start: TextSize,
     class: String,
     attr: String,
-    /// Where the attribute name starts.
     offset: TextSize,
-    /// Whether the class does not declare the attribute.
     undeclared: bool,
 }
 
@@ -239,9 +226,8 @@ impl Checker<'_> {
         }
     }
 
-    /// The receiver of a method: its first positional parameter, which is `self` or `cls`. A def
-    /// directly in a class body is a method. A staticmethod has no receiver. A method whose class has an
-    /// external ancestor has one too, but no attribute of it is judged.
+    /// A def directly in a class body is a method. A staticmethod has no receiver. A method whose class has an external
+    /// ancestor has one too, but no attribute of it is judged.
     fn method_receiver(&self, function: &StmtFunctionDef) -> Option<Receiver> {
         let ScopeKind::Class(class) = self.scopes.current_kind() else {
             return None;
@@ -262,7 +248,6 @@ impl Checker<'_> {
         })
     }
 
-    /// Binds the names that a statement other than a `def` or `class` binds in the current scope.
     fn bind_statement(&mut self, stmt: &Stmt) {
         match stmt {
             Stmt::Assign(assign) => self.bind_assign(assign),
@@ -274,8 +259,7 @@ impl Checker<'_> {
         }
     }
 
-    /// An annotated assignment is checked, and then binds its target. An annotated assignment through a receiver is
-    /// reported at once, see `check_attribute_binding`.
+    /// An annotated assignment through a receiver is reported at once, see `check_attribute_binding`.
     fn bind_annotated(&mut self, assign: &StmtAnnAssign) {
         self.check_annotated(assign);
         match assign.target.as_ref() {
@@ -284,7 +268,6 @@ impl Checker<'_> {
         }
     }
 
-    /// Binds the names of an import, and declares the names of a `global` or `nonlocal` statement.
     fn bind_import_or_declaration(&mut self, stmt: &Stmt) {
         match stmt {
             Stmt::Import(import) => self.bind_aliases(&import.names),
@@ -295,7 +278,6 @@ impl Checker<'_> {
         }
     }
 
-    /// An assignment judges its plain-name targets, unless it declares a type such as `T = TypeVar("T")`.
     fn bind_assign(&mut self, assign: &StmtAssign) {
         let report = self.assignment_report(assign);
         for target in &assign.targets {
@@ -349,9 +331,8 @@ impl Checker<'_> {
         }
     }
 
-    /// Binds the names in a target. Only a plain name can be judged, as `report` says. Names inside tuples,
-    /// lists and starred targets are never judged. An attribute target is judged by the attribute rule, when
-    /// it is bound through a method's receiver.
+    /// Only a plain name can be judged, as `report` says. Names inside tuples, lists and starred targets are never
+    /// judged. An attribute target is judged by the attribute rule, when it is bound through a method's receiver.
     fn bind_target(&mut self, target: &Expr, report: Report) {
         match target {
             Expr::Name(name) => self.bind_name(name, report),
@@ -360,7 +341,6 @@ impl Checker<'_> {
         }
     }
 
-    /// Binds the targets inside a starred target, a tuple or a list. None of them is judged.
     fn bind_nested_target(&mut self, target: &Expr) {
         match target {
             Expr::Starred(starred) => self.bind_target(&starred.value, Report::Silent),
@@ -408,7 +388,6 @@ impl Checker<'_> {
         matches!(self.scopes.current_kind(), ScopeKind::Class(class) if class.is_enum)
     }
 
-    /// GW004 for a plain name in a class body, and GW001 for one in a module or function scope.
     fn report_unannotated(&mut self, name: &ExprName) {
         let (code, message) = unannotated_message(self.scopes.current_kind(), name.id.as_str());
         self.report(name.range.start(), code, message);
@@ -463,7 +442,6 @@ impl Checker<'_> {
         }
     }
 
-    /// Records the names that a class body declares by its exempt assignments.
     fn declare_class_attributes(&mut self, kind: &ScopeKind, names: Vec<String>) {
         if let ScopeKind::Class(class) = kind
             && !names.is_empty()
@@ -475,8 +453,7 @@ impl Checker<'_> {
         }
     }
 
-    /// GW001 or GW004 for an obvious first binding that the name is bound again. The message gives the line of
-    /// the first rebinding.
+    /// The message gives the line of the first rebinding.
     fn report_rebound(&mut self, kind: &ScopeKind, candidate: &Candidate, rebound: TextSize) {
         let name = candidate.name.as_str();
         let (line, _) = line_col(self.code, rebound);
@@ -498,7 +475,6 @@ impl Checker<'_> {
         self.report(candidate.offset, code, message);
     }
 
-    /// Closes the innermost scope, and judges what it settles.
     fn close_scope(&mut self) {
         let closed = self.scopes.close();
         self.judge_closed(closed);
@@ -524,7 +500,6 @@ impl Checker<'_> {
         }
     }
 
-    /// The assignment through the receiver of the current method that `attribute` is, with the class that judges it.
     /// `None` when `attribute` is not assigned through the receiver.
     fn receiver_write(&self, attribute: &ExprAttribute) -> Option<ReceiverWrite> {
         let ScopeKind::Function {
@@ -645,7 +620,6 @@ fn has_positional(parameters: &Parameters) -> bool {
     !parameters.posonlyargs.is_empty() || !parameters.args.is_empty()
 }
 
-/// Whether a decorator makes the function a staticmethod, such as `@staticmethod`.
 fn is_staticmethod(function: &StmtFunctionDef) -> bool {
     function
         .decorator_list
@@ -653,7 +627,6 @@ fn is_staticmethod(function: &StmtFunctionDef) -> bool {
         .any(|decorator| ends_with_name(&decorator.expression, "staticmethod"))
 }
 
-/// Whether `expr` is the plain name `name`.
 fn is_name(expr: &Expr, name: &str) -> bool {
     matches!(expr, Expr::Name(variable) if variable.id.as_str() == name)
 }
@@ -693,7 +666,6 @@ fn is_exempt_name(name: &str) -> bool {
     name == "_" || is_dunder(name)
 }
 
-/// A name that begins and ends with two underscores, such as `__version__`.
 fn is_dunder(name: &str) -> bool {
     name.len() > 4 && name.starts_with("__") && name.ends_with("__")
 }
@@ -740,7 +712,6 @@ fn unannotated_message(kind: &ScopeKind, name: &str) -> (Code, String) {
     }
 }
 
-/// Whether an assignment is `NAME = callee(...)` for one of the type-declaring callees.
 fn is_type_declaration(assign: &StmtAssign) -> bool {
     matches!(assign.targets.as_slice(), [Expr::Name(_)]) && is_type_declaring_call(&assign.value)
 }

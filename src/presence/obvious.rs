@@ -47,8 +47,8 @@ enum Scalar {
     Bool,
 }
 
-/// The shape of an obvious literal or container. Two elements of a list, a set, or a dict share one shape when
-/// their shapes are equal. A tuple keeps the shape of each of its elements.
+/// Two elements of a list, a set, or a dict share one shape when their shapes are equal. A tuple keeps the shape of
+/// each of its elements.
 #[derive(Debug, PartialEq, Eq)]
 enum Shape {
     Scalar(Scalar),
@@ -58,14 +58,12 @@ enum Shape {
     Dict(Box<Shape>, Box<Shape>),
 }
 
-/// The shape of a literal or of a non-empty container of literals, and `None` for anything else.
 fn shape(expr: &Expr) -> Option<Shape> {
     scalar_kind(expr)
         .map(Shape::Scalar)
         .or_else(|| container_shape(expr))
 }
 
-/// The kind of a scalar literal, and `None` for any other expression.
 fn scalar_kind(expr: &Expr) -> Option<Scalar> {
     match expr {
         Expr::NumberLiteral(number) => Some(number_kind(&number.value)),
@@ -74,7 +72,6 @@ fn scalar_kind(expr: &Expr) -> Option<Scalar> {
     }
 }
 
-/// The kind of a string literal, of bytes, or of a bool.
 fn text_kind(expr: &Expr) -> Option<Scalar> {
     match expr {
         Expr::StringLiteral(_) | Expr::FString(_) => Some(Scalar::Str),
@@ -90,7 +87,6 @@ fn bytes_or_bool_kind(expr: &Expr) -> Option<Scalar> {
     }
 }
 
-/// The shape of a non-empty tuple, list, set or dict of literals, and `None` for any other expression.
 fn container_shape(expr: &Expr) -> Option<Shape> {
     match expr {
         Expr::Tuple(tuple) => tuple_shape(&tuple.elts),
@@ -99,7 +95,6 @@ fn container_shape(expr: &Expr) -> Option<Shape> {
     }
 }
 
-/// The shape of a non-empty list or set of literals, whose items share one shape.
 fn sequence_shape(expr: &Expr) -> Option<Shape> {
     match expr {
         Expr::List(list) => {
@@ -136,15 +131,13 @@ fn tuple_shape(elements: &[Expr]) -> Option<Shape> {
     (!shapes.is_empty()).then_some(Shape::Tuple(shapes))
 }
 
-/// A dict whose keys share one shape and whose values share one shape. A `**` item has no key, so it is not
-/// obvious.
+/// A `**` item has no key, so it is not obvious.
 fn dict_shape(items: &[DictItem]) -> Option<Shape> {
     let keys = uniform(items.iter().map(|item| item.key.as_ref().and_then(shape)))?;
     let values = uniform(items.iter().map(|item| shape(&item.value)))?;
     Some(Shape::Dict(Box::new(keys), Box::new(values)))
 }
 
-/// The one shape that every item has, when there is at least one item, and all items are obvious and alike.
 fn uniform(shapes: impl Iterator<Item = Option<Shape>>) -> Option<Shape> {
     let shapes = shapes.collect::<Option<Vec<Shape>>>()?;
     let first = shapes.first()?;
@@ -174,7 +167,6 @@ fn callee_name(func: &Expr) -> Option<&str> {
     }
 }
 
-/// Whether a class with this name, called without arguments, has type parameters that the call leaves unknown.
 fn is_generic(name: &str, func: &Expr, file: &Path, index: &ClassIndex) -> bool {
     KNOWN_GENERICS.contains(&name) || index.is_generic_callee(file, func)
 }

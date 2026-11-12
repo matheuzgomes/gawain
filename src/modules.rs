@@ -8,17 +8,14 @@ use std::path::{Path, PathBuf};
 use ruff_python_ast::statement_visitor::{self, StatementVisitor};
 use ruff_python_ast::{Alias, Expr, Stmt, StmtImport, StmtImportFrom};
 
-/// The file name of a package's initialiser.
 const INIT_FILE: &str = "__init__.py";
 
-/// Whether `path` names a package initialiser, which is the package it lives in.
 pub fn is_package(path: &Path) -> bool {
     path.file_name().and_then(OsStr::to_str) == Some(INIT_FILE)
 }
 
-/// The dotted module name of the file at `path`. Its stem is the last part, and each parent directory
-/// that holds an `__init__.py` adds its name in front. A file outside any package is named by its stem
-/// alone, so `pkg/sub/mod.py` is `pkg.sub.mod` and `pkg/__init__.py` is `pkg`.
+/// The dotted module name of the file at `path`. A file outside any package is named by its stem alone,
+/// so `pkg/sub/mod.py` is `pkg.sub.mod` and `pkg/__init__.py` is `pkg`.
 pub fn module_name(path: &Path) -> String {
     let resolved = location(path);
     let stem = resolved.file_stem().filter(|_| !is_package(&resolved));
@@ -46,8 +43,7 @@ fn location(path: &Path) -> PathBuf {
         .map_or_else(|| path.to_path_buf(), |name| dir.join(name))
 }
 
-/// The names of the packages around the file at `path`, innermost first. A directory is a package while
-/// it has a name and holds an `__init__.py`, and the walk ends at the first directory that is not one.
+/// The names of the packages around the file at `path`, innermost first.
 fn enclosing_packages(path: &Path) -> Vec<String> {
     path.parent()
         .into_iter()
@@ -58,7 +54,7 @@ fn enclosing_packages(path: &Path) -> Vec<String> {
         .collect()
 }
 
-/// What a name bound by an import refers to. Relative imports are already absolute here.
+/// Relative imports are already absolute here.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Import {
     /// `import a.b` binds `a`, and `import a.b as k` binds `k`. Either way the name is a module.
@@ -129,7 +125,6 @@ impl ImportTable {
     }
 }
 
-/// The callees whose call makes a type variable, such as `TypeVar("T")` or `typing.ParamSpec("P")`.
 const TYPE_VAR_CALLEES: [&str; 3] = ["TypeVar", "ParamSpec", "TypeVarTuple"];
 
 /// The module-level names of one analysed module: the classes it defines and what its imports bind.
@@ -146,8 +141,8 @@ pub struct ModuleScope {
 }
 
 impl ModuleScope {
-    /// Reads the classes and imports in `body`, the statements of `module`. The last module-level binding
-    /// of a name wins, so an import that comes after a class of the same name takes the name from it.
+    /// The last module-level binding of a name wins, so an import that comes after a class of the same name takes the
+    /// name from it.
     pub fn new(module: &str, is_package: bool, body: &[Stmt]) -> Self {
         let mut scope = Self::default();
         for stmt in body {
@@ -165,8 +160,6 @@ impl ModuleScope {
         scope
     }
 
-    /// Records what one module-level statement binds, in order. A class is recorded as a class, and an
-    /// import as an import, which removes the class of the same name.
     fn bind_statement(&mut self, module: &str, is_package: bool, stmt: &Stmt) {
         match stmt {
             Stmt::ClassDef(class) => {
@@ -177,7 +170,6 @@ impl ModuleScope {
         }
     }
 
-    /// Binds the names of an import statement, which hide the classes of the same names.
     fn bind_import(&mut self, module: &str, is_package: bool, stmt: &Stmt) {
         if let Stmt::Import(import) = stmt {
             self.imports.add_import(import);
@@ -193,20 +185,17 @@ impl ModuleScope {
         }
     }
 
-    /// Forgets the classes whose names a later import binds at module level.
     fn rebind<'a>(&mut self, names: impl Iterator<Item = &'a str>) {
         for name in names {
             self.classes.remove(name);
         }
     }
 
-    /// The import at module level that binds `name`, if any.
     pub fn binding(&self, name: &str) -> Option<&Import> {
         self.imports.bound.get(name)
     }
 
-    /// Every name that an import binds, with the import. A module-level import hides a nested one that
-    /// binds the same name.
+    /// A module-level import hides a nested one that binds the same name.
     pub fn bindings(&self) -> impl Iterator<Item = (&str, &Import)> {
         let nested = self
             .anywhere
@@ -220,13 +209,11 @@ impl ModuleScope {
             .map(|(name, import)| (name.as_str(), import))
     }
 
-    /// Whether a statement of the module body star-imports `module`.
     pub fn star_imports(&self, module: &str) -> bool {
         self.imports.star.iter().any(|star| star == module)
     }
 }
 
-/// The name that a module-level statement binds to a type variable, such as `T` in `T = TypeVar("T")`.
 fn type_var_name(stmt: &Stmt) -> Option<&str> {
     let Stmt::Assign(assign) = stmt else {
         return None;
@@ -237,7 +224,6 @@ fn type_var_name(stmt: &Stmt) -> Option<&str> {
     }
 }
 
-/// Whether `value` is a call of one of the type-variable callees, bare or through a module.
 fn is_type_var_call(value: &Expr) -> bool {
     let Expr::Call(call) = value else {
         return false;
@@ -250,7 +236,6 @@ fn is_type_var_call(value: &Expr) -> bool {
     TYPE_VAR_CALLEES.contains(&callee)
 }
 
-/// Walks every statement of a module and records each import it finds, at any depth.
 struct AnywhereImports<'a> {
     module: &'a str,
     is_package: bool,
@@ -303,7 +288,6 @@ fn relative_package(module: &str, is_package: bool, level: u32) -> Option<Vec<&s
     (!package.is_empty()).then_some(package)
 }
 
-/// What a dotted reference resolves to.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Target {
     /// A class defined at module level of an analysed file.
@@ -315,38 +299,30 @@ pub enum Target {
     Member { module: String, name: String },
     /// A bare name that its module does not bind, such as the builtin `object`.
     Unbound(String),
-    /// A type variable, a ParamSpec or a TypeVarTuple that its module assigns at module level, such as `T` in
-    /// `T = TypeVar("T")`.
+    /// A type variable that its module assigns at module level, such as `T` in `T = TypeVar("T")`.
     TypeVar,
     /// A reference that cannot be followed: an attribute of a class, an import cycle, an import that
     /// climbs above the top package, or a module name that more than one analysed file has.
     Unknown,
 }
 
-/// The analysed files that a module name stands for.
 enum Named<'a> {
-    /// Exactly one analysed file has the name.
     Unique(&'a Path),
     /// Two or more analysed files have the name, so an import of it cannot be followed.
     Ambiguous,
-    /// No analysed file has the name.
     Absent,
 }
 
-/// The module-level names of every analysed file, used to resolve references. A file is looked up by its
-/// path, and a module name by the files that carry it. Two files outside any package can share a name, such
-/// as `x/settings.py` and `y/settings.py`, so the name alone does not identify a file.
+/// A file is looked up by its path, and a module name by the files that carry it. Two files outside any package
+/// can share a name, such as `x/settings.py` and `y/settings.py`, so the name alone does not identify a file.
 #[derive(Debug, Default)]
 pub struct Modules {
     scopes: HashMap<PathBuf, ModuleScope>,
     files: HashMap<String, Vec<PathBuf>>,
-    /// Whether a name that a module does not bind is looked up in the modules that it star-imports.
     follow_stars: bool,
 }
 
 impl Modules {
-    /// An empty set of modules. Names are looked up through the star imports of a module when `follow_stars`
-    /// is set, and are not otherwise.
     pub fn new(follow_stars: bool) -> Self {
         Self {
             follow_stars,
@@ -354,8 +330,7 @@ impl Modules {
         }
     }
 
-    /// Registers the file at `path`, whose module name is `name`. Every file is kept, so a name that two
-    /// files share is ambiguous.
+    /// Every file is kept, so a name that two files share is ambiguous.
     pub fn insert(&mut self, path: &Path, name: &str, scope: ModuleScope) {
         self.files
             .entry(name.to_owned())
@@ -364,9 +339,9 @@ impl Modules {
         self.scopes.insert(path.to_path_buf(), scope);
     }
 
-    /// Resolves a dotted reference that is written in the file at `file`: its head name, such as `m` in
-    /// `m.n.A`, and the attribute names after it, such as `["n", "A"]`. The head is looked up in that file
-    /// first, so a class defined there is found even when another file has the same module name.
+    /// Resolves a dotted reference written in the file at `file`: its head name, such as `m` in `m.n.A`, and the
+    /// attribute names after it. The head is looked up in that file first, so a class defined there is found even when
+    /// another file has the same module name.
     pub fn resolve(&self, file: &Path, head: &str, rest: &[&str]) -> Target {
         rest.iter()
             .fold(self.head(file, head), |target, part| match target {
@@ -375,20 +350,18 @@ impl Modules {
             })
     }
 
-    /// Whether the dotted reference `head` with the attribute names `rest`, written in the file at `file`, names a
-    /// type variable, a ParamSpec or a TypeVarTuple. It may be bound in that file, or imported from an analysed
-    /// module, bare or through a module. A name that comes from a module that is not analysed is not one.
+    /// Whether the dotted reference names a type variable, a ParamSpec or a TypeVarTuple. A name that comes from a
+    /// module that is not analysed is not one.
     pub fn is_type_var(&self, file: &Path, head: &str, rest: &[&str]) -> bool {
         self.resolve(file, head, rest) == Target::TypeVar
     }
 
-    /// The name `name` as the file at `file` binds it at module level.
     fn head(&self, file: &Path, name: &str) -> Target {
         self.bound_target(file, name, &mut HashSet::new())
             .unwrap_or_else(|| Target::Unbound(name.to_owned()))
     }
 
-    /// The member `name` of the module `module`, following re-exports. `visited` stops an import cycle.
+    /// `visited` stops an import cycle.
     fn member(&self, module: &str, name: &str, visited: &mut HashSet<(String, String)>) -> Target {
         match self.named(module) {
             Named::Unique(file) => self.file_member(file, module, name, visited),
@@ -413,7 +386,6 @@ impl Modules {
             .unwrap_or_else(|| self.absent_member(module, name))
     }
 
-    /// Which analysed files the module name `module` stands for.
     fn named(&self, module: &str) -> Named<'_> {
         match self.files.get(module).map(Vec::as_slice) {
             Some([file]) => Named::Unique(file.as_path()),
@@ -422,8 +394,6 @@ impl Modules {
         }
     }
 
-    /// What the file at `file` binds `name` to, as a class defined there, through an import, or through a star
-    /// import. `None` when it binds the name in none of these ways.
     fn bound_target(
         &self,
         file: &Path,
@@ -435,7 +405,6 @@ impl Modules {
             .or_else(|| self.star_target(&scope.imports.star, name, visited))
     }
 
-    /// What the module `scope`, which is the file at `file`, binds `name` to by its own classes and imports.
     fn local_target(
         &self,
         scope: &ModuleScope,
@@ -456,9 +425,8 @@ impl Modules {
             .map(|import| self.import_target(import, visited))
     }
 
-    /// What a name that the module binds nowhere itself refers to, through the star imports of the module.
-    /// Python binds the names of the last star import first, so the imports are read from last to first, and
-    /// the first one that provides the name wins. A name that starts with an underscore is never star-imported.
+    /// Python binds the names of the last star import first, so the imports are read from last to first, and the first
+    /// one that provides the name wins. A name that starts with an underscore is never star-imported.
     fn star_target(
         &self,
         stars: &[String],
@@ -503,7 +471,6 @@ impl Modules {
         }
     }
 
-    /// A name that the module `module` does not bind: a submodule that is analysed, or else a plain member.
     fn absent_member(&self, module: &str, name: &str) -> Target {
         let submodule = format!("{module}.{name}");
         if self.files.contains_key(&submodule) {

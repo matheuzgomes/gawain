@@ -13,7 +13,6 @@ use super::{Severity, TypeDiagnostic, TypesError, TypesRun, failed_from_exit_cod
 /// The gitlab `severity` that ty 0.0.100 gives a warning. Every other severity is an error.
 const TY_WARNING_SEVERITY: &str = "minor";
 
-/// ty's output is not the gitlab JSON array that gawain reads.
 #[derive(Debug)]
 pub struct TyOutputError(serde_json::Error);
 
@@ -38,7 +37,6 @@ pub(super) fn run_ty(ty: &Path, files: &[PathBuf]) -> Result<TypesRun, TypesErro
     interpret_ty(&output)
 }
 
-/// Reads ty's output. Its exit code says whether the run failed, and its stdout must be gitlab JSON.
 fn interpret_ty(output: &Output) -> Result<TypesRun, TypesError> {
     let failed = failed_from_exit_code(output.status.code())
         .ok_or_else(|| TypesError::failed(TypeChecker::Ty, output))?;
@@ -51,13 +49,11 @@ fn interpret_ty(output: &Output) -> Result<TypesRun, TypesError> {
     })
 }
 
-/// Reads ty's gitlab output: a JSON array with one item per diagnostic. An empty array is a clean run.
 pub fn parse_ty_output(stdout: &str) -> Result<Vec<TypeDiagnostic>, TyOutputError> {
     let items: Vec<GitlabItem> = serde_json::from_str(stdout).map_err(TyOutputError)?;
     Ok(items.into_iter().map(TypeDiagnostic::from).collect())
 }
 
-/// One item of ty's gitlab output. Fields that gawain does not use are ignored.
 #[derive(Deserialize)]
 struct GitlabItem {
     check_name: String,
@@ -103,7 +99,6 @@ impl From<GitlabItem> for TypeDiagnostic {
     }
 }
 
-/// The severity of a ty diagnostic: `minor` is a warning, and every other gitlab severity is an error.
 fn severity_of(gitlab: &str) -> Severity {
     if gitlab == TY_WARNING_SEVERITY {
         Severity::Warning

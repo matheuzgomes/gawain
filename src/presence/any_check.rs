@@ -1,7 +1,5 @@
-//! The GW020 check: `Any` anywhere in a type expression. The type expressions are parameter and return
-//! annotations, the annotation of an annotated assignment, the bound and default of a type parameter,
-//! and the value of a `type` statement or of an assignment annotated `TypeAlias`. A name counts as
-//! `typing.Any` only when an import binds it, so a class that happens to be called `Any` is not reported.
+//! The GW020 check: `Any` anywhere in a type expression. A name counts as `typing.Any` only when an import
+//! binds it, so a class that happens to be called `Any` is not reported.
 
 use std::collections::HashSet;
 use std::path::Path;
@@ -22,7 +20,6 @@ use crate::modules::{Import, ModuleScope};
 
 const MESSAGE: &str = "'Any' is not allowed in type annotations";
 
-/// The names in one module that refer to `typing.Any` and to the typing modules.
 #[derive(Debug, Default)]
 pub struct TypingNames {
     /// Names that an import binds to `typing.Any`, such as `Any` and `A` in `from typing import Any as A`.
@@ -35,7 +32,6 @@ pub struct TypingNames {
 }
 
 impl TypingNames {
-    /// Resolves the typing names of a module from its import tables.
     pub fn new(scope: &ModuleScope) -> Self {
         let star_import = ["typing", "typing_extensions"]
             .into_iter()
@@ -50,7 +46,6 @@ impl TypingNames {
         names
     }
 
-    /// Records `name` when its import binds a typing module, or `typing.Any` itself.
     fn record(&mut self, name: &str, import: &Import) {
         match import {
             Import::Module(module) if is_typing_module(module) => {
@@ -79,13 +74,12 @@ fn is_typing_module(module: &str) -> bool {
     matches!(module, "typing" | "typing_extensions")
 }
 
-/// Whether an import of `member` from `module` binds `typing.Any`.
 fn is_typing_any(module: &str, member: &str) -> bool {
     is_typing_module(module) && member == "Any"
 }
 
-/// The spans of every `Any` in one type expression, in the order they are found. A string annotation is
-/// parsed and walked, and an `Any` inside it is placed at the start of the outermost string literal.
+/// A string annotation is parsed and walked, and an `Any` inside it is placed at the start of the outermost string
+/// literal.
 pub fn any_occurrences(expr: &Expr, typing: &TypingNames) -> Vec<TextRange> {
     let mut finder = Finder {
         typing,
@@ -95,15 +89,14 @@ pub fn any_occurrences(expr: &Expr, typing: &TypingNames) -> Vec<TextRange> {
     finder.found
 }
 
-/// Collects the `Any` occurrences of one type expression.
 struct Finder<'a> {
     typing: &'a TypingNames,
     found: Vec<TextRange>,
 }
 
 impl Finder<'_> {
-    /// Walks a type expression. `anchor` is the string literal that the expression was parsed from, if
-    /// any, and it places every occurrence found inside.
+    /// `anchor` is the string literal that the expression was parsed from, if any, and it places every occurrence found
+    /// inside.
     fn find(&mut self, expr: &Expr, anchor: Option<TextRange>) {
         match expr {
             Expr::Name(name) => self.find_name(name, anchor),
@@ -112,7 +105,6 @@ impl Finder<'_> {
         }
     }
 
-    /// Walks a subscript or a string literal. Any other expression goes to the compound walk.
     fn find_other(&mut self, expr: &Expr, anchor: Option<TextRange>) {
         match expr {
             Expr::Subscript(subscript) => self.find_subscript(subscript, anchor),
@@ -121,9 +113,6 @@ impl Finder<'_> {
         }
     }
 
-    /// Walks the parts of a compound type expression: the elements of a tuple or a list, the two
-    /// sides of `|`, and the value of a starred expression. Any other expression has no `Any` in it
-    /// that this walk can see.
     fn find_compound(&mut self, expr: &Expr, anchor: Option<TextRange>) {
         match expr {
             Expr::BinOp(binop) => {
@@ -178,8 +167,7 @@ impl Finder<'_> {
         self.find(arguments, anchor);
     }
 
-    /// A string annotation stands for the expression its content parses to. Content that does not parse
-    /// has no occurrences.
+    /// Content that does not parse has no occurrences.
     fn find_string(&mut self, literal: &ExprStringLiteral, anchor: Option<TextRange>) {
         let Ok(parsed) = parse_expression(literal.value.to_str()) else {
             return;
@@ -189,7 +177,6 @@ impl Finder<'_> {
     }
 }
 
-/// The type argument of an `Annotated` subscript: its first element when the slice is a tuple.
 fn annotated_type(slice: &Expr) -> &Expr {
     match slice {
         Expr::Tuple(tuple) => tuple.elts.first().unwrap_or(slice),
@@ -197,8 +184,7 @@ fn annotated_type(slice: &Expr) -> &Expr {
     }
 }
 
-/// Reports every `Any` in a type expression of the module. The check is a walk of its own, so it does
-/// not need the scopes of the presence visitor.
+/// The check is a walk of its own, so it does not need the scopes of the presence visitor.
 pub fn check_module(
     path: &Path,
     module: &ModModule,
@@ -234,8 +220,6 @@ impl<'ast> Visitor<'ast> for AnyChecker<'_> {
 }
 
 impl AnyChecker<'_> {
-    /// The type expressions of a `def`: the bounds and defaults of its type parameters, its parameter
-    /// annotations, and its return annotation.
     fn check_function(&mut self, function: &StmtFunctionDef) {
         self.check_type_params(function.type_params.as_deref());
         for parameter in function.parameters.iter() {
@@ -248,8 +232,6 @@ impl AnyChecker<'_> {
         }
     }
 
-    /// The type expressions of a statement other than a `def` or a `class`: a `type` statement, and an
-    /// annotated assignment.
     fn check_statement(&mut self, stmt: &Stmt) {
         match stmt {
             Stmt::TypeAlias(alias) => {
@@ -296,7 +278,6 @@ impl AnyChecker<'_> {
     }
 }
 
-/// The type expressions of one type parameter: its bound and its default.
 fn type_param_types(type_param: &TypeParam) -> impl Iterator<Item = &Expr> {
     let (bound, default) = match type_param {
         TypeParam::TypeVar(param) => (param.bound.as_deref(), param.default.as_deref()),

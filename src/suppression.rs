@@ -11,13 +11,10 @@ use ruff_text_size::TextRange;
 use crate::diagnostics::{Code, Diagnostic};
 use crate::presence::line_col;
 
-/// The word that begins a directive. It is followed by a colon, optional spaces, and `ignore`.
 const NAME: &str = "gawain";
 const KEYWORD: &str = "ignore";
 const NEEDS_CODE: &str = "'gawain: ignore' needs at least one code, e.g. '# gawain: ignore[GW001]'";
 
-/// The suppressions of one file: the codes that each line silences, the codes that each directive
-/// lists, and the GW900 errors for malformed directives.
 #[derive(Debug, Default)]
 pub struct Suppressions {
     by_line: HashMap<u32, Vec<Code>>,
@@ -25,8 +22,7 @@ pub struct Suppressions {
     errors: Vec<Diagnostic>,
 }
 
-/// A code that a valid directive lists, at `line`. `unused` is the GW901 that is reported when no
-/// diagnostic on that line has the code.
+/// `unused` is the GW901 that is reported when no diagnostic on that line has the code.
 #[derive(Debug)]
 struct Listed {
     line: u32,
@@ -77,9 +73,7 @@ pub fn apply(diagnostics: Vec<Diagnostic>, suppressions: &Suppressions) -> Vec<D
 }
 
 impl Suppressions {
-    /// Adds the codes of one directive, which sits at `line` and `col`. A directive that lists no codes
-    /// and each entry that is not a suppressible code are GW900 errors at the start of the comment. Each
-    /// suppressible code is listed once, so a code repeated in one directive is reported once if unused.
+    /// Each suppressible code is listed once, so a code repeated in one directive is reported once if unused.
     fn record(&mut self, path: &Path, line: u32, col: u32, listed: &[&str]) {
         if listed.is_empty() {
             self.errors
@@ -90,7 +84,6 @@ impl Suppressions {
         }
     }
 
-    /// Records one entry of a directive. A suppressible code is listed, and any other entry is a GW900.
     fn record_entry(&mut self, path: &Path, line: u32, col: u32, entry: &str) {
         match suppressible(entry) {
             Some(code) => self.list(path, line, col, code),
@@ -103,7 +96,6 @@ impl Suppressions {
         }
     }
 
-    /// Records that the directive at `line` and `col` lists `code`, unless it already does.
     fn list(&mut self, path: &Path, line: u32, col: u32, code: Code) {
         let codes = self.by_line.entry(line).or_default();
         if codes.contains(&code) {
@@ -123,7 +115,6 @@ impl Suppressions {
         });
     }
 
-    /// Whether a suppression on the line of `diagnostic` lists its code.
     fn silences(&self, diagnostic: &Diagnostic) -> bool {
         self.by_line
             .get(&diagnostic.line)
@@ -150,9 +141,7 @@ fn diagnostic(path: &Path, line: u32, col: u32, code: Code, message: String) -> 
     }
 }
 
-/// The codes that the first `gawain: ignore` directive of a comment lists, trimmed and without empty
-/// entries. `None` when the comment holds no directive. A directive without a closed pair of brackets
-/// lists no codes.
+/// `None` when the comment holds no directive. A directive without a closed pair of brackets lists no codes.
 fn listed_codes(comment: &str) -> Option<Vec<&str>> {
     let rest = comment
         .match_indices(NAME)
@@ -178,8 +167,7 @@ fn starts_directive(comment: &str, at: usize) -> bool {
     comment[..at].ends_with(|c: char| c == '#' || c.is_whitespace())
 }
 
-/// The text after `ignore`, when `text`, which follows `gawain`, reads `: ignore` with optional spaces
-/// around the colon. The word must end there, so `gawain: ignored` is not a directive.
+/// The word must end there, so `gawain: ignored` is not a directive.
 fn after_keyword(text: &str) -> Option<&str> {
     let rest = text
         .trim_start()
@@ -199,7 +187,6 @@ mod tests {
     use crate::diagnostics::Code;
     use crate::presence::check_source;
 
-    /// The `(line, col, message)` of every diagnostic with `code` that `source` produces.
     fn reports(source: &str, code: Code) -> Vec<(u32, u32, String)> {
         check_source(Path::new("case.py"), source, Mode::Strict)
             .into_iter()

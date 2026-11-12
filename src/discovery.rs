@@ -6,26 +6,19 @@ use ignore::{DirEntry, WalkBuilder};
 
 use crate::diagnostics::Diagnostic;
 
-/// What discovery found under the named paths: the Python files to check, and a GW000 for each path
-/// that the walk could not read.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Discovery {
     /// The Python files, sorted. A file reached in two ways, such as `./a.py` and `a.py`, or through a symbolic
-    /// link to it, is listed once, under a path that is not a link when one of its paths is not one, and
-    /// otherwise under the first of its paths in sorted order.
+    /// link to it, is listed once.
     pub files: Vec<PathBuf>,
-    /// One GW000 for each path that a directory walk could not read.
     pub errors: Vec<Diagnostic>,
 }
 
 /// Expands `paths` into the Python files to check, and collects the walk errors.
 ///
-/// A path named on the command line is always checked, whether it is a file or a directory. A file
-/// is taken as it is when it ends with `.py`. A directory is walked (honouring `.gitignore`) and
-/// keeps its `.py` files. `exclude` applies only to paths found while walking. With
-/// `exclude = ["tests/fixtures"]`, `gawain check .` skips `tests/fixtures`, while `gawain check
-/// tests/fixtures` checks it, and so does `gawain check tests/fixtures/<dir>`. A directory named
-/// inside an excluded path is walked in full, for the same reason.
+/// A path named on the command line is always checked. `exclude` applies only to paths found while walking:
+/// with `exclude = ["tests/fixtures"]`, `gawain check .` skips `tests/fixtures`, while `gawain check
+/// tests/fixtures` checks it. A directory named inside an excluded path is walked in full, for the same reason.
 ///
 /// A path that the walk cannot read gives a GW000 at its start, so the run fails rather than passing
 /// over what it could not see.
@@ -58,7 +51,6 @@ fn identity(file: &Path) -> PathBuf {
     file.canonicalize().unwrap_or_else(|_| file.to_path_buf())
 }
 
-/// Whether `path` is a symbolic link itself. A path that reaches a file through a linked directory is not.
 fn is_symlink(path: &Path) -> bool {
     fs::symlink_metadata(path).is_ok_and(|metadata| metadata.file_type().is_symlink())
 }
@@ -70,7 +62,6 @@ impl Discovery {
     }
 }
 
-/// What `path` stands for: the file itself, or every Python file under a directory.
 fn expand(path: &Path, cwd: Option<&Path>, excluded: &[PathBuf]) -> Discovery {
     if path.is_dir() {
         walk(path, cwd, excluded)
@@ -82,8 +73,6 @@ fn expand(path: &Path, cwd: Option<&Path>, excluded: &[PathBuf]) -> Discovery {
     }
 }
 
-/// The file itself when it is a Python file. A named path that is not one, such as a file with another
-/// extension, gives nothing.
 fn named_file(path: &Path) -> Vec<PathBuf> {
     if path.is_file() && is_python(path) {
         vec![path.to_path_buf()]
@@ -106,8 +95,6 @@ fn walk(dir: &Path, cwd: Option<&Path>, excluded: &[PathBuf]) -> Discovery {
     found
 }
 
-/// The exclusions that apply below `root`. A named directory that is excluded itself, or lies inside an
-/// excluded path, excludes nothing below it.
 fn excluded_below<'a>(root: &Path, excluded: &'a [PathBuf]) -> &'a [PathBuf] {
     if excluded.iter().any(|entry| root.starts_with(entry)) {
         &[]
@@ -116,8 +103,6 @@ fn excluded_below<'a>(root: &Path, excluded: &'a [PathBuf]) -> &'a [PathBuf] {
     }
 }
 
-/// The path of a walked entry when it is a Python file that `exclude` does not skip. A symbolic link is
-/// taken as its target says, see `is_checked_link`.
 fn python_file(entry: DirEntry, cwd: Option<&Path>, excluded: &[PathBuf]) -> Option<PathBuf> {
     let kind = entry.file_type()?;
     let file = entry.into_path();
@@ -126,8 +111,6 @@ fn python_file(entry: DirEntry, cwd: Option<&Path>, excluded: &[PathBuf]) -> Opt
     wanted.then_some(file)
 }
 
-/// Whether a walked entry of the kind `kind` is a file to check: a regular file, or a symbolic link that
-/// `is_checked_link` takes.
 fn is_checked_entry(file: &Path, kind: fs::FileType) -> bool {
     if kind.is_symlink() {
         is_checked_link(file)
@@ -146,9 +129,7 @@ fn is_checked_link(link: &Path) -> bool {
     }
 }
 
-/// The GW000 for a path that the walk could not read. The walk names the path in the error when it can,
-/// and otherwise the directory that was being walked is reported. A directory gives "cannot read
-/// directory", and any other path gives "cannot read path".
+/// The walk names the path in the error when it can, and otherwise the directory that was being walked is reported.
 fn walk_error(root: &Path, error: &ignore::Error) -> Diagnostic {
     let path = match error {
         ignore::Error::WithPath { path, .. } => path.as_path(),

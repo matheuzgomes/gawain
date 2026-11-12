@@ -15,10 +15,8 @@ use crate::config::TypeChecker;
 pub use pyrefly::{PyreflyOutputError, parse_pyrefly_output};
 pub use ty::{TyOutputError, parse_ty_output};
 
-/// How many lines of the checker's stderr an error message shows.
 const STDERR_LINES: usize = 3;
 
-/// Whether a diagnostic of the type checker fails the types phase.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Severity {
@@ -26,13 +24,12 @@ pub enum Severity {
     Warning,
 }
 
-/// One diagnostic that the type checker printed. `line` and `col` are 1-based.
+/// `line` and `col` are 1-based.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct TypeDiagnostic {
     pub path: PathBuf,
     pub line: u32,
     pub col: u32,
-    /// The checker's rule name, such as `invalid-assignment`.
     pub rule: String,
     /// The description without the rule name in front of it.
     pub message: String,
@@ -40,10 +37,8 @@ pub struct TypeDiagnostic {
     pub severity: Severity,
 }
 
-/// A types phase run that the checker finished: every diagnostic it printed, and whether it failed.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TypesRun {
-    /// The checker that produced this run.
     pub checker: TypeChecker,
     pub diagnostics: Vec<TypeDiagnostic>,
     /// The types phase fails. For ty, the checker exited with 1, which only errors make it do, because gawain
@@ -51,7 +46,6 @@ pub struct TypesRun {
     pub failed: bool,
 }
 
-/// Why the types phase could not finish.
 #[derive(Debug)]
 pub enum TypesError {
     NotFound(TypeChecker),
@@ -67,7 +61,6 @@ pub enum TypesError {
 }
 
 impl TypesError {
-    /// The failure of a run of `checker` whose exit code or stdout gawain does not accept.
     fn failed(checker: TypeChecker, output: &Output) -> Self {
         let stderr = String::from_utf8_lossy(&output.stderr);
         let head: Vec<&str> = stderr.lines().take(STDERR_LINES).collect();
@@ -79,7 +72,6 @@ impl TypesError {
     }
 }
 
-/// The message for a checker that is not on PATH and not next to gawain, with the way to fix it.
 fn not_found_message(checker: TypeChecker) -> &'static str {
     match checker {
         TypeChecker::Ty => {
@@ -116,8 +108,8 @@ impl fmt::Display for TypesError {
 
 impl std::error::Error for TypesError {}
 
-/// Runs `checker` on `files` from the current directory and reads what it printed. The executable is looked up
-/// first; then each checker's own arguments and output rules apply. A run that gawain does not accept is an error.
+/// Runs `checker` on `files` from the current directory and reads what it printed. A run that gawain does not accept is
+/// an error.
 pub fn run(checker: TypeChecker, files: &[PathBuf]) -> Result<TypesRun, TypesError> {
     let exe = find_checker(checker).ok_or(TypesError::NotFound(checker))?;
     match checker {
@@ -126,8 +118,7 @@ pub fn run(checker: TypeChecker, files: &[PathBuf]) -> Result<TypesRun, TypesErr
     }
 }
 
-/// Starts `exe` with `args`, then with `files`. The `--` that ends `args` makes each file a path, so a file
-/// whose name begins with `-` is not read as an option.
+/// The `--` that ends `args` makes each file a path, so a file whose name begins with `-` is not read as an option.
 fn spawn(exe: &Path, args: &[&str], files: &[PathBuf]) -> Result<Output, TypesError> {
     Command::new(exe)
         .args(args)
@@ -139,7 +130,6 @@ fn spawn(exe: &Path, args: &[&str], files: &[PathBuf]) -> Result<Output, TypesEr
         })
 }
 
-/// Whether a run failed, from its exit code: 0 is clean and 1 is failed. Any other code is not accepted.
 fn failed_from_exit_code(code: Option<i32>) -> Option<bool> {
     match code {
         Some(0) => Some(false),
@@ -148,8 +138,8 @@ fn failed_from_exit_code(code: Option<i32>) -> Option<bool> {
     }
 }
 
-/// The executable of `checker`: a file named after it in the directory of gawain, and otherwise the first
-/// such file on `PATH`. On Windows the file name ends in `.exe`.
+/// The executable of `checker`: a file named after it in the directory of gawain, and otherwise the first such file on
+/// `PATH`.
 pub fn find_checker(checker: TypeChecker) -> Option<PathBuf> {
     let name = executable_name(checker.name());
     let beside = std::env::current_exe()
@@ -160,7 +150,6 @@ pub fn find_checker(checker: TypeChecker) -> Option<PathBuf> {
         .or_else(|| find_on_path(&name))
 }
 
-/// The file name of the executable `name` on this platform.
 fn executable_name(name: &str) -> String {
     if cfg!(windows) {
         format!("{name}.exe")

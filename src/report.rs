@@ -7,9 +7,8 @@ use crate::config::TypeChecker;
 use crate::diagnostics::Diagnostic;
 use crate::types_phase::{Severity, TypeDiagnostic, TypesRun};
 
-/// Writes the report for a terminal, without a trailing newline. `types` is `None` when the types phase
-/// did not run. Each row is written as soon as it is formatted, so the report is never built in memory
-/// as one string.
+/// Writes the report for a terminal, without a trailing newline. Each row is written as soon as it is
+/// formatted, so the report is never built in memory as one string.
 pub fn write_text(
     out: &mut impl Write,
     presence: &[Diagnostic],
@@ -21,8 +20,6 @@ pub fn write_text(
     write_types_outcome(out, types)
 }
 
-/// Writes the types phase once presence is clean: the line that says it did not run or passed, or its
-/// diagnostics.
 fn write_types_outcome(out: &mut impl Write, types: Option<&TypesRun>) -> io::Result<()> {
     match types {
         None => out.write_all(b"All checks passed (presence)."),
@@ -31,7 +28,6 @@ fn write_types_outcome(out: &mut impl Write, types: Option<&TypesRun>) -> io::Re
     }
 }
 
-/// A types run passed when the checker printed nothing and did not fail.
 fn types_passed(run: &TypesRun) -> bool {
     run.diagnostics.is_empty() && !run.failed
 }
@@ -78,7 +74,6 @@ fn write_types(out: &mut impl Write, run: &TypesRun) -> io::Result<()> {
     write_section(out, "[types]", &rows, &types_summary(run))
 }
 
-/// Counts the errors and the warnings of a types run, and names each count that is not zero.
 fn types_summary(run: &TypesRun) -> String {
     let warnings = run
         .diagnostics
@@ -100,7 +95,6 @@ fn types_summary(run: &TypesRun) -> String {
     }
 }
 
-/// `1 error` or `3 errors`, and nothing when the count is zero.
 fn counted(count: usize, one: &str, many: &str) -> Option<String> {
     match count {
         0 => None,
@@ -109,7 +103,6 @@ fn counted(count: usize, one: &str, many: &str) -> Option<String> {
     }
 }
 
-/// One row of a titled section: where it is, and the text that follows its location.
 trait Row {
     fn path(&self) -> &Path;
     fn line(&self) -> u32;
@@ -166,8 +159,6 @@ impl Row for TypeRow<'_> {
     }
 }
 
-/// A titled block of rows, each a location and its text in aligned columns, then a blank line and the
-/// summary. The location column is as wide as the longest location.
 fn write_section<R: Row>(
     out: &mut impl Write,
     title: &str,
@@ -183,7 +174,6 @@ fn write_section<R: Row>(
     write!(out, "\n{summary}")
 }
 
-/// Writes one row: its location, then `padding` spaces and two more, then its text.
 fn write_row(out: &mut impl Write, row: &impl Row, padding: usize) -> io::Result<()> {
     write_location(out, row)?;
     write_spaces(out, padding + 2)?;
@@ -191,7 +181,6 @@ fn write_row(out: &mut impl Write, row: &impl Row, padding: usize) -> io::Result
     out.write_all(b"\n")
 }
 
-/// Writes the location `path:line:col`. The path is written as `Path::display` shows it.
 fn write_location(out: &mut impl Write, row: &impl Row) -> io::Result<()> {
     out.write_all(row.path().to_string_lossy().as_bytes())?;
     write!(out, ":{}:{}", row.line(), row.col())
@@ -208,7 +197,6 @@ fn write_spaces(out: &mut impl Write, mut count: usize) -> io::Result<()> {
     Ok(())
 }
 
-/// The number of characters in the location `path:line:col`, counted without writing it out.
 fn location_width(row: &impl Row) -> usize {
     row.path().to_string_lossy().chars().count()
         + 2
@@ -216,7 +204,6 @@ fn location_width(row: &impl Row) -> usize {
         + decimal_digits(row.col())
 }
 
-/// The number of decimal digits in `value`.
 fn decimal_digits(value: u32) -> usize {
     value
         .checked_ilog10()

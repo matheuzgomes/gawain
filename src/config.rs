@@ -16,7 +16,6 @@ pub enum Mode {
     Strict,
 }
 
-/// The type checker that the types phase runs.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, ValueEnum)]
 #[serde(rename_all = "lowercase")]
 pub enum TypeChecker {
@@ -45,10 +44,8 @@ pub struct Config {
     /// Path prefixes, relative to the working directory, whose files are skipped when walking directories.
     #[serde(default)]
     pub exclude: Vec<String>,
-    /// The mode when the command line does not give one.
     #[serde(default)]
     pub mode: Mode,
-    /// The type checker when the command line does not give one.
     #[serde(default)]
     pub checker: TypeChecker,
 }

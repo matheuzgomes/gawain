@@ -61,16 +61,13 @@ fn check_one(
 /// needs far more than the default stack of a thread. The memory is reserved, not committed, until used.
 pub const STACK_SIZE: usize = 256 * 1024 * 1024;
 
-/// Checks every file and returns the merged diagnostics, sorted. Files are read in parallel, and the class
-/// index is built from them. Each file is then parsed again and checked against that index.
+/// Checks every file and returns the merged diagnostics, sorted.
 ///
-/// A file that cannot be read, is not valid UTF-8, or does not parse gets its GW000 diagnostics
-/// instead. It is left out of the class index, and no other rule runs on it, but every other file
-/// is still checked. `walk_errors` are the GW000 diagnostics that discovery gave for paths it could
-/// not walk, and they are merged in unchanged.
+/// A file that cannot be read, is not valid UTF-8, or does not parse gets its GW000 diagnostics instead. It is left
+/// out of the class index, and no other rule runs on it, but every other file is still checked. `walk_errors` are
+/// merged in unchanged.
 ///
-/// The work runs in a rayon pool whose threads have a stack of `STACK_SIZE`. The pool cannot be
-/// built when the operating system refuses a thread, and then no file is checked.
+/// The pool cannot be built when the operating system refuses a thread, and then no file is checked.
 pub fn check_files(
     files: &[PathBuf],
     walk_errors: Vec<Diagnostic>,
@@ -80,12 +77,9 @@ pub fn check_files(
     Ok(pool.install(|| check_loaded(files, walk_errors, mode)))
 }
 
-/// The work of `check_files`, run inside the pool. The first pass keeps only what other files need of each
-/// file, so no syntax tree is alive for more than the work on its own file. In obvious mode, a pass that
-/// parses again finds the exempt class-body assignments, which declare attributes for the other files. The
-/// last pass parses each file again, checks it, and sorts its diagnostics on the thread that made them.
-/// Concatenating those lists in file order gives the same order as one sort, because every diagnostic of a
-/// file has that file's path.
+/// The first pass keeps only what other files need of each file, so no syntax tree is alive for more than the work
+/// on its own file. The last pass sorts each file's diagnostics on the thread that made them. Concatenating those
+/// lists in file order gives the same order as one sort, because every diagnostic of a file has that file's path.
 fn check_loaded(files: &[PathBuf], walk_errors: Vec<Diagnostic>, mode: Mode) -> Vec<Diagnostic> {
     let mut loaded: Vec<Result<LoadedFile, Vec<Diagnostic>>> = files
         .par_iter()
@@ -129,8 +123,8 @@ fn declare_exempt_attributes(loaded: &mut [Result<LoadedFile, Vec<Diagnostic>>])
     }
 }
 
-/// What presence keeps of one file between the two passes: its path, source, module name, scope, and its
-/// module-level classes as written. Its syntax tree is not kept, because the check parses the source again.
+/// What presence keeps of one file between the two passes. Its syntax tree is not kept, because the check parses the
+/// source again.
 struct LoadedFile {
     path: PathBuf,
     module_name: String,
@@ -140,7 +134,6 @@ struct LoadedFile {
 }
 
 impl LoadedFile {
-    /// Reads, decodes and loads the file. On failure the error holds the GW000 diagnostics of the file.
     fn read(path: &Path) -> Result<Self, Vec<Diagnostic>> {
         let bytes = std::fs::read(path).map_err(|error| {
             vec![Diagnostic::for_path(
@@ -157,8 +150,7 @@ impl LoadedFile {
         Self::load(path, source)
     }
 
-    /// Parses `source` and keeps what the class index and the check need of it. The parser recovers from
-    /// errors, so every error it reports is kept as a GW000. The syntax tree is dropped when this returns.
+    /// The parser recovers from errors, so every error it reports is kept as a GW000.
     fn load(path: &Path, source: String) -> Result<Self, Vec<Diagnostic>> {
         let parsed = parse_unchecked_source(&source, PySourceType::Python);
         if !parsed.has_valid_syntax() {
@@ -177,8 +169,6 @@ impl LoadedFile {
         })
     }
 
-    /// Checks the file against the class index. The source is parsed again here, and the syntax tree is freed
-    /// when the check ends.
     fn check(&self, index: &ClassIndex, mode: Mode) -> Vec<Diagnostic> {
         self.with_tree(|parsed, code| {
             let mut diagnostics =
@@ -196,15 +186,12 @@ impl LoadedFile {
         })
     }
 
-    /// The class-body assignments of the file that obvious mode exempts, judged in the obvious mode with `index`.
     fn exempt_attributes(&self, index: &ClassIndex) -> Vec<ExemptAttributes> {
         self.with_tree(|parsed, code| {
             visitor::check_module(&self.path, parsed.syntax(), code, index, Mode::Obvious).exempt
         })
     }
 
-    /// Adds the names that each class of the file declares by exempt assignments, which are classes that the
-    /// class index holds under their start offset.
     fn declare_exempt(&mut self, exempt: Vec<ExemptAttributes>) {
         let mut by_start: HashMap<TextSize, Vec<String>> = exempt
             .into_iter()
@@ -227,7 +214,6 @@ impl LoadedFile {
     }
 }
 
-/// The comment tokens of a parsed file, each with its range and text.
 fn comments<'a>(
     parsed: &'a Parsed<ModModule>,
     source: &'a str,
@@ -239,7 +225,6 @@ fn comments<'a>(
         .map(move |token| (token.range(), &source[token.range()]))
 }
 
-/// One GW000 for each syntax error of a file, at the position where the parser found it.
 fn syntax_errors(path: &Path, source: &str, errors: &[ParseError]) -> Vec<Diagnostic> {
     let index = LineIndex::from_source_text(source);
     let code = SourceCode::new(source, &index);
@@ -258,7 +243,6 @@ fn syntax_errors(path: &Path, source: &str, errors: &[ParseError]) -> Vec<Diagno
         .collect()
 }
 
-/// The elements of a tuple or a list, and none for any other expression.
 pub(crate) fn sequence_elements(expr: &Expr) -> &[Expr] {
     match expr {
         Expr::Tuple(tuple) => &tuple.elts,

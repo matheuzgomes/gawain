@@ -10,7 +10,6 @@ use gawain::presence;
 use gawain::types_phase::{self, TypesError, TypesRun};
 use gawain::{config, discovery, report};
 
-/// The size of the buffer that the report is written through.
 const OUTPUT_BUFFER: usize = 64 * 1024;
 
 /// Checks Python source files for missing type annotations.
@@ -80,7 +79,6 @@ fn finish(handle: std::thread::JoinHandle<ExitCode>) -> ExitCode {
     }
 }
 
-/// Parses the command line and runs the command. Runs on the thread that `main` starts.
 fn run() -> ExitCode {
     let cli = Cli::parse();
     match cli.command {
@@ -101,8 +99,7 @@ fn run_check(args: CheckArgs) -> ExitCode {
     }
 }
 
-/// Runs the presence phase, then the types phase when it is due, and prints the report. A usage error
-/// or a type checker that cannot run is returned as the message to print.
+/// A usage error or a type checker that cannot run is returned as the message to print.
 fn check(args: CheckArgs) -> Result<ExitCode, String> {
     let CheckArgs {
         paths,
@@ -121,8 +118,8 @@ fn check(args: CheckArgs) -> Result<ExitCode, String> {
     Ok(print_report(&presence, types.as_ref(), format))
 }
 
-/// The Python files under `paths`. When there are none, the notice goes to stderr, and the run passes
-/// unless a walk error reports a path it could not read.
+/// When there are none, the notice goes to stderr, and the run passes unless a walk error reports a path
+/// it could not read.
 fn discover(paths: &[PathBuf], exclude: &[String]) -> discovery::Discovery {
     let found = discovery::python_files(paths, exclude);
     if found.files.is_empty() {
@@ -131,8 +128,6 @@ fn discover(paths: &[PathBuf], exclude: &[String]) -> discovery::Discovery {
     found
 }
 
-/// Runs the presence phase on the discovered files, with the walk errors among its diagnostics, and then
-/// the types phase when it is due.
 fn run_phases(
     found: discovery::Discovery,
     no_types: bool,
@@ -146,7 +141,6 @@ fn run_phases(
     Ok((presence, types))
 }
 
-/// The usage error for the first of `paths` that does not exist.
 fn ensure_paths_exist(paths: &[PathBuf]) -> Result<(), String> {
     match paths.iter().find(|path| !path.exists()) {
         Some(missing) => Err(format!(
@@ -171,7 +165,6 @@ fn run_types_if_due(
     types_phase::run(checker, files).map(Some)
 }
 
-/// Prints the report in `format` and returns the exit status for it.
 fn print_report(presence: &[Diagnostic], types: Option<&TypesRun>, format: Format) -> ExitCode {
     match write_report(presence, types, format) {
         Ok(()) => exit_status(presence, types),
@@ -182,8 +175,7 @@ fn print_report(presence: &[Diagnostic], types: Option<&TypesRun>, format: Forma
     }
 }
 
-/// Writes the report to stdout in `format`, through one buffer, and ends it with a newline. Only the JSON
-/// form can fail to render.
+/// Only the JSON form can fail to render.
 fn write_report(
     presence: &[Diagnostic],
     types: Option<&TypesRun>,
@@ -196,7 +188,6 @@ fn write_report(
         .map_err(output_error)
 }
 
-/// Writes the body of the report in `format`, without the final newline.
 fn write_format(
     out: &mut impl Write,
     presence: &[Diagnostic],
@@ -220,12 +211,10 @@ fn write_json(
     out.write_all(json.as_bytes()).map_err(output_error)
 }
 
-/// The message for a report that cannot be written to stdout.
 fn output_error(error: io::Error) -> String {
     format!("gawain: cannot write output: {error}")
 }
 
-/// Success when presence is clean and the type checker did not fail, and 1 otherwise.
 fn exit_status(presence: &[Diagnostic], types: Option<&TypesRun>) -> ExitCode {
     let types_failed = types.is_some_and(|run| run.failed);
     if presence.is_empty() && !types_failed {
