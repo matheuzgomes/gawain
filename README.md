@@ -29,7 +29,7 @@ total = compute()
 
 
 def send(to, body):
-    ...
+    print(f"to {to}: {body}")
 
 
 class Order:
