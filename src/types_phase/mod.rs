@@ -75,7 +75,7 @@ impl TypesError {
 fn not_found_message(checker: TypeChecker) -> &'static str {
     match checker {
         TypeChecker::Ty => {
-            "gawain: ty not found; install gawain with pip/uv (it depends on ty==0.0.100) or put ty on PATH"
+            "gawain: ty not found; install gawain[ty] (it depends on ty==0.0.100) or put ty on PATH"
         }
         TypeChecker::Pyrefly => {
             "gawain: pyrefly not found; install gawain[pyrefly] (it depends on pyrefly==1.4.1) or put pyrefly on PATH"

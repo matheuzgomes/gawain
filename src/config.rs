@@ -19,7 +19,7 @@ pub enum Mode {
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, ValueEnum)]
 #[serde(rename_all = "lowercase")]
 pub enum TypeChecker {
-    /// Astral's ty, installed with gawain.
+    /// Astral's ty, installed with `gawain[ty]`.
     #[default]
     Ty,
     /// Meta's pyrefly, installed with `gawain[pyrefly]`.

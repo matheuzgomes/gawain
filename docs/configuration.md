@@ -57,12 +57,12 @@ a misspelt setting cannot pass silently.
 
 ## Choosing the type checker
 
-The types phase runs ty or pyrefly. ty is the default and is installed with gawain. pyrefly comes with the
-`pyrefly` extra.
+The types phase runs ty or pyrefly. ty is the default. Each checker comes with an extra of its own: `ty`
+pins ty 0.0.100 and `pyrefly` pins pyrefly 1.4.1. gawain without an extra installs neither.
 
 To switch to pyrefly:
 
-1. Install gawain with the extra, which pins pyrefly 1.4.1:
+1. Install gawain with the `pyrefly` extra, which pins pyrefly 1.4.1 and does not install ty:
 
    ```sh
    uv tool install "gawain[pyrefly]"
@@ -83,8 +83,8 @@ To switch to pyrefly:
    gawain check src/ --checker pyrefly
    ```
 
-To switch back, remove the key or set `checker = "ty"`. `--checker ty` overrides `checker = "pyrefly"` for one
-run.
+To switch back, install the `ty` extra (`pip install "gawain[ty]"`), then remove the key or set
+`checker = "ty"`. `--checker ty` overrides `checker = "pyrefly"` for one run.
 
 gawain looks for the checker's executable (`ty` or `pyrefly`, with `.exe` on Windows) first in the directory of
 the `gawain` executable, where pip and uv install it, and then on `PATH`. When it is found in neither place,
@@ -114,7 +114,17 @@ repos:
 ```
 
 The hook uses `language: python`, so pre-commit installs gawain from this repository's source and builds it.
-That needs a Rust toolchain (1.97 or newer) and network access.
+That needs a Rust toolchain (1.97 or newer) and network access. The hook installs ty 0.0.100 with it. To use
+pyrefly in the hook, replace that dependency and choose pyrefly in `[tool.gawain]`:
+
+```yaml
+repos:
+  - repo: https://github.com/matheuzgomes/gawain
+    rev: v0.2.0
+    hooks:
+      - id: gawain
+        additional_dependencies: ["pyrefly==1.4.1"]
+```
 
 pre-commit passes the staged file names to gawain, so `exclude` in `[tool.gawain]` does not apply there. To
 leave files out of the hook, use pre-commit's own `exclude:` option:

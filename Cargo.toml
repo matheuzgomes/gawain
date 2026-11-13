@@ -4,7 +4,7 @@ version = "0.2.0"
 edition = "2024"
 rust-version = "1.97"
 license = "MIT"
-description = "Checks Python source files for missing type annotations, then runs the ty type checker."
+description = "Checks Python source files for missing type annotations, then runs the ty or pyrefly type checker."
 repository = "https://github.com/matheuzgomes/gawain"
 publish = false
 

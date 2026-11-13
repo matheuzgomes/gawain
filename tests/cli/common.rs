@@ -12,7 +12,8 @@ pub(crate) const FULLY_ANNOTATED: &str = concat!(
     "/tests/fixtures/fully_annotated.py"
 );
 
-pub(crate) const TY_NOT_FOUND: &str = "gawain: ty not found; install gawain with pip/uv (it depends on ty==0.0.100) or put ty on PATH";
+pub(crate) const TY_NOT_FOUND: &str =
+    "gawain: ty not found; install gawain[ty] (it depends on ty==0.0.100) or put ty on PATH";
 
 pub(crate) const PYREFLY_NOT_FOUND: &str = "gawain: pyrefly not found; install gawain[pyrefly] (it depends on pyrefly==1.4.1) or put pyrefly on PATH";
 

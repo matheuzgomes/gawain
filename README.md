@@ -71,14 +71,16 @@ prices.py:2:12  ty[invalid-return-type] Return type does not match returned valu
 
 ## Install
 
+Install gawain with the extra of the type checker you want. ty is the default checker, and the `ty` extra pins
+it to 0.0.100:
+
 ```sh
-uv tool install gawain
+uv tool install "gawain[ty]"
 # or
-pip install gawain
+pip install "gawain[ty]"
 ```
 
-The package installs the `gawain` command and ty, pinned to 0.0.100. ty is the default type checker. To use
-pyrefly instead, install the `pyrefly` extra, which pins pyrefly 1.4.1:
+To use pyrefly instead, install the `pyrefly` extra, which pins pyrefly 1.4.1 and does not install ty:
 
 ```sh
 uv tool install "gawain[pyrefly]"
@@ -89,6 +91,9 @@ pip install "gawain[pyrefly]"
 Then choose it with `checker = "pyrefly"` in `[tool.gawain]`, or with `--checker pyrefly`.
 [docs/configuration.md](https://github.com/matheuzgomes/gawain/blob/main/docs/configuration.md#choosing-the-type-checker)
 explains the switch.
+
+`pip install gawain` without an extra installs only the `gawain` command. It then needs a checker on `PATH`, or
+`--no-types` to run the annotation checks only.
 
 > [!WARNING]
 > Use gawain with care. ty is in beta, and its diagnostics may change between versions. If that is a problem
