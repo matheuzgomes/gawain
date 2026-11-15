@@ -39,7 +39,7 @@ GW011 (a bare `Final`). Every other rule is the same in both modes.
 | `numbers = [1, 2, 3]`, `pair = (1, "a")`, `table = {"a": [1]}` | `mixed = [1, 2.5]`, `empty = []`, `nested = [[1], ["a"]]` |
 | `user = User("ada")`, `model = models.User()`, `words = Counter(lines)` | `counter = Counter()`, `url = URL("x")`, `moment = datetime(2020, 1, 1)` |
 | `MAX: Final = 3`, `NAME: Final = "ada"` | `MAX = 3` (a constant needs `Final`), `LIMIT: Final = load()` |
-| class body: `count = 0`, with no method that sets `self.count` | class body: `count = 0`, with `self.count = 1` in a method |
+| class body: `size = 0`, with no method that sets `self.size` | class body: `count = 0`, with `self.count = 1` in a method |
 | `hits = 0`, then `hits += 1` | `count = 0`, then `count = count + 1` |
 
 The rules:
