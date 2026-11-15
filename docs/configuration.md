@@ -111,7 +111,7 @@ How gawain runs each one:
 ```yaml
 repos:
   - repo: https://github.com/matheuzgomes/gawain
-    rev: v0.3.0
+    rev: v0.3.1
     hooks:
       - id: gawain
 ```
@@ -123,7 +123,7 @@ pyrefly in the hook, replace that dependency and choose pyrefly in `[tool.gawain
 ```yaml
 repos:
   - repo: https://github.com/matheuzgomes/gawain
-    rev: v0.3.0
+    rev: v0.3.1
     hooks:
       - id: gawain
         additional_dependencies: ["pyrefly==1.4.1"]
@@ -135,7 +135,7 @@ leave files out of the hook, use pre-commit's own `exclude:` option:
 ```yaml
 repos:
   - repo: https://github.com/matheuzgomes/gawain
-    rev: v0.3.0
+    rev: v0.3.1
     hooks:
       - id: gawain
         exclude: ^tests/fixtures/

@@ -151,7 +151,7 @@ mode = "strict"
 ```yaml
 repos:
   - repo: https://github.com/matheuzgomes/gawain
-    rev: v0.3.0
+    rev: v0.3.1
     hooks:
       - id: gawain
 ```
