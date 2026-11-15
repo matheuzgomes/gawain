@@ -81,18 +81,50 @@ fn named_file(path: &Path) -> Vec<PathBuf> {
     }
 }
 
-/// Walks `dir`, which was named on the command line. When `dir` is itself an excluded path, or lies inside
-/// one, nothing is excluded below it: the walk checks everything, as it does for a file named directly.
+/// `dir` was named on the command line, so it is checked like a file named directly. When it lies inside an
+/// excluded path, nothing below it is excluded. When it lies inside installed packages, its `site-packages` and
+/// `__pypackages__` are checked too, and only the virtual environments nested below it are skipped.
 fn walk(dir: &Path, cwd: Option<&Path>, excluded: &[PathBuf]) -> Discovery {
     let excluded = excluded_below(&normalize(dir, cwd), excluded);
+    let skip_by_name = !lies_in_installed_packages(dir);
+    let mut builder = WalkBuilder::new(dir);
+    builder
+        .require_git(false)
+        .filter_entry(move |entry| !is_skipped_directory(entry, skip_by_name));
     let mut found = Discovery::default();
-    for entry in WalkBuilder::new(dir).require_git(false).build() {
+    for entry in builder.build() {
         match entry {
             Ok(entry) => found.files.extend(python_file(entry, cwd, excluded)),
             Err(error) => found.errors.push(walk_error(dir, &error)),
         }
     }
     found
+}
+
+/// `python -m venv`, virtualenv and uv put a `pyvenv.cfg` at the root of every environment, whatever its name.
+/// conda and a system Python keep their packages in `site-packages`.
+fn is_installed_packages(dir: &Path) -> bool {
+    is_virtual_environment(dir) || is_packages_folder(dir)
+}
+
+fn is_virtual_environment(dir: &Path) -> bool {
+    dir.join("pyvenv.cfg").is_file()
+}
+
+fn is_packages_folder(dir: &Path) -> bool {
+    dir.file_name()
+        .is_some_and(|name| name == "site-packages" || name == "__pypackages__")
+}
+
+fn is_skipped_directory(entry: &DirEntry, skip_by_name: bool) -> bool {
+    let dir = entry.path();
+    entry.depth() > 0
+        && entry.file_type().is_some_and(|kind| kind.is_dir())
+        && (is_virtual_environment(dir) || (skip_by_name && is_packages_folder(dir)))
+}
+
+fn lies_in_installed_packages(dir: &Path) -> bool {
+    identity(dir).ancestors().any(is_installed_packages)
 }
 
 fn excluded_below<'a>(root: &Path, excluded: &'a [PathBuf]) -> &'a [PathBuf] {

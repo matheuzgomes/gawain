@@ -9,8 +9,11 @@ pre-commit hook.
 gawain check PATHS... [--no-types] [--format text|json] [--mode obvious|strict] [--checker ty|pyrefly]
 ```
 
-- `PATHS` are Python files or directories. A directory is walked, and `.gitignore` is honoured. A path
-  named here is always checked, even when `exclude` lists it (see [Configuration](#configuration)).
+- `PATHS` are Python files or directories. A directory is walked, and `.gitignore` is honoured. The walk
+  skips hidden directories and installed packages: any directory with a `pyvenv.cfg` (a virtual
+  environment, whatever its name) and any `site-packages` or `__pypackages__` directory. A path
+  named here is always checked, even when `exclude` lists it (see [Configuration](#configuration)) or it
+  is a virtual environment.
   A symbolic link to a Python file that the walk finds is checked under the link's own path. A symbolic
   link to a directory is not followed, and a link that points to nothing gives a GW000. A file reached
   by more than one path is checked once, under the first path in sorted order.

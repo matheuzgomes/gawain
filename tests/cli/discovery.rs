@@ -48,6 +48,135 @@ fn directory_walk_skips_the_exclude_list_from_pyproject() {
     );
 }
 
+const VENV_TREE: &[(&str, &str)] = &[
+    (
+        "venv/pyvenv.cfg",
+        "home = /usr/local/bin\nversion = 3.11.6\n",
+    ),
+    (
+        "venv/lib/python3.11/site-packages/dep/api.py",
+        "def get(u):\n    return u\n",
+    ),
+    ("app/main.py", "def ok(n: int) -> int:\n    return n\n"),
+];
+
+#[test]
+fn directory_walk_skips_a_virtual_environment_by_its_pyvenv_cfg() {
+    let dir = temp_tree("walk-skips-venv", VENV_TREE);
+    let output = gawain()
+        .current_dir(&dir)
+        .args(["check", "--no-types", "."])
+        .output()
+        .expect("gawain runs");
+    fs::remove_dir_all(&dir).expect("temp directory is removable");
+
+    assert_eq!(output.status.code(), Some(0));
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "All checks passed (presence).\n"
+    );
+}
+
+#[test]
+fn directory_walk_skips_site_packages_outside_a_virtual_environment() {
+    let dir = temp_tree(
+        "walk-skips-site-packages",
+        &[
+            (
+                "lib/python3.11/site-packages/dep/api.py",
+                "def get(u): ...\n",
+            ),
+            ("kept.py", "y: int = 1\n"),
+        ],
+    );
+    let output = gawain()
+        .current_dir(&dir)
+        .args(["check", "--no-types", "."])
+        .output()
+        .expect("gawain runs");
+    fs::remove_dir_all(&dir).expect("temp directory is removable");
+
+    assert_eq!(output.status.code(), Some(0));
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "All checks passed (presence).\n"
+    );
+}
+
+#[test]
+fn directory_walk_checks_a_folder_named_env_without_pyvenv_cfg() {
+    let dir = temp_tree("walk-checks-env", &[("env/settings.py", "def f(a): ...\n")]);
+    let output = gawain()
+        .current_dir(&dir)
+        .args(["check", "--no-types", "."])
+        .output()
+        .expect("gawain runs");
+    fs::remove_dir_all(&dir).expect("temp directory is removable");
+
+    assert_eq!(output.status.code(), Some(1));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("env/settings.py"), "stdout was: {stdout}");
+}
+
+#[test]
+fn virtual_environment_named_on_the_command_line_is_checked_in_full() {
+    let dir = temp_tree("named-venv", VENV_TREE);
+    let output = gawain()
+        .current_dir(&dir)
+        .args(["check", "--no-types", "venv"])
+        .output()
+        .expect("gawain runs");
+    fs::remove_dir_all(&dir).expect("temp directory is removable");
+
+    assert_eq!(output.status.code(), Some(1));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("function 'get'"), "stdout was: {stdout}");
+}
+
+#[test]
+fn site_packages_named_on_the_command_line_is_checked() {
+    let dir = temp_tree("named-site-packages", VENV_TREE);
+    let output = gawain()
+        .current_dir(&dir)
+        .args(["check", "--no-types", "venv/lib"])
+        .output()
+        .expect("gawain runs");
+    fs::remove_dir_all(&dir).expect("temp directory is removable");
+
+    assert_eq!(output.status.code(), Some(1));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("function 'get'"), "stdout was: {stdout}");
+}
+
+#[test]
+fn project_inside_a_virtual_environment_still_skips_its_own_venv() {
+    // virtualenvwrapper style: the project lives inside one venv and keeps another venv of its own.
+    let dir = temp_tree(
+        "project-in-venv",
+        &[
+            ("pyvenv.cfg", "home = /usr/local/bin\n"),
+            ("proj/venv/pyvenv.cfg", "home = /usr/local/bin\n"),
+            (
+                "proj/venv/lib/python3.11/site-packages/dep/api.py",
+                "def get(u): ...\n",
+            ),
+            ("proj/main.py", "y: int = 1\n"),
+        ],
+    );
+    let output = gawain()
+        .current_dir(dir.join("proj"))
+        .args(["check", "--no-types", "."])
+        .output()
+        .expect("gawain runs");
+    fs::remove_dir_all(&dir).expect("temp directory is removable");
+
+    assert_eq!(output.status.code(), Some(0));
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "All checks passed (presence).\n"
+    );
+}
+
 #[test]
 fn missing_path_is_a_usage_error() {
     let missing = unique_temp_path("missing.py");
