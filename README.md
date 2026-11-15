@@ -3,15 +3,25 @@
     <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/matheuzgomes/gawain/main/docs/assets/gawain-wordmark-dark.svg">
     <img src="https://raw.githubusercontent.com/matheuzgomes/gawain/main/docs/assets/gawain-wordmark.svg" alt="gawain: the green axe with the green girdle, above the name in blackletter" width="200">
   </picture>
+  <br><a href="https://pypi.org/project/gawain/"><img src="https://img.shields.io/pypi/v/gawain" alt="PyPI version"></a> <a href="https://github.com/matheuzgomes/gawain/actions/workflows/ci.yml"><img src="https://github.com/matheuzgomes/gawain/actions/workflows/ci.yml/badge.svg" alt="CI"></a> <a href="https://github.com/matheuzgomes/gawain/blob/main/LICENSE"><img src="https://img.shields.io/pypi/l/gawain" alt="License"></a>
 </p>
 
-gawain requires type annotations on the variables, parameters, returns and class attributes of Python code,
-then runs a type checker, [ty](https://docs.astral.sh/ty/) or [pyrefly](https://pyrefly.org/), to check that the
-types are correct.
+gawain is a type annotation checker for Python. It requires annotations on variables, parameters, returns and
+class attributes, then runs a type checker, [ty](https://docs.astral.sh/ty/) or [pyrefly](https://pyrefly.org/),
+to check that the types are correct.
 
 Type checkers such as mypy, Pyright, ty and pyrefly infer the type of a variable that has no annotation. ruff's `ANN`
 rules and flake8-annotations ask for annotations on functions only. gawain also asks for them on variables and
 class attributes.
+
+```sh
+uv tool install "gawain[ty]"
+gawain check src/
+```
+
+> [!WARNING]
+> ty is in beta, and its diagnostics may change between versions. If that is a problem for your project, use
+> pyrefly, or `--no-types` to run the annotation checks only.
 
 ## Why
 
@@ -51,16 +61,19 @@ shop.py:12:14  GW004 attribute 'items' is not declared in the body of class 'Ord
 6 errors (presence). Type check skipped until presence errors are fixed.
 ```
 
-`retries = 3` passes, because a literal has an obvious type. `PORT` is a constant, so it needs `Final[int]`.
+In the default mode, `retries = 3` passes, because a literal has an obvious type. `PORT` is an UPPER_CASE name,
+so gawain treats it as a constant, and a constant needs `Final`. The literal still gives the type, so
+`PORT: Final = 8080` passes.
 
 When every annotation is in place, gawain runs the type checker on the same files and prints what it reports.
-With ty, the default, for
-`prices.py`:
+The default checker is ty. Given `prices.py`:
 
 ```python
 def total(prices: list[int]) -> int:
     return "0"
 ```
+
+`gawain check prices.py` prints:
 
 ```text
 [types]
@@ -94,10 +107,6 @@ explains the switch.
 
 `pip install gawain` without an extra installs only the `gawain` command. It then needs a checker on `PATH`, or
 `--no-types` to run the annotation checks only.
-
-> [!WARNING]
-> Use gawain with care. ty is in beta, and its diagnostics may change between versions. If that is a problem
-> for your project, use pyrefly, or `--no-types` to run the annotation checks only.
 
 ## Usage
 
@@ -178,6 +187,7 @@ gawain ran with `--no-types`. This is one benchmark on one machine (AMD Ryzen 7 
 - [docs/rules.md](https://github.com/matheuzgomes/gawain/blob/main/docs/rules.md): rules, modes, exemptions and suppression.
 - [docs/configuration.md](https://github.com/matheuzgomes/gawain/blob/main/docs/configuration.md): paths, output, exit codes, `[tool.gawain]` and pre-commit.
 - [docs/benchmarks.md](https://github.com/matheuzgomes/gawain/blob/main/docs/benchmarks.md): how the numbers above were measured.
+- [Issues](https://github.com/matheuzgomes/gawain/issues): bugs and ideas.
 
 ## Acknowledgements
 
@@ -186,8 +196,10 @@ ty, both by [Astral](https://astral.sh), or with [pyrefly](https://pyrefly.org/)
 
 ## Name
 
-I don't know, I just like the Arthurian tales. Gawain is a knight of the Round Table, and the mascot is
-the Green Knight's axe with the green girdle from _Sir Gawain and the Green Knight_.
+I don't know, I just like the Arthurian tales. In _Sir Gawain and the Green Knight_, Gawain repeats the Green
+Knight's covenant word for word, keeps every bargain he makes and slips only once: he hides the green girdle.
+gawain asks the same of your code: every type declared, and every declared type kept. The mascot is the Green
+Knight's axe with that girdle.
 
 ## License
 
