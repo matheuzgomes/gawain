@@ -3,45 +3,32 @@ use std::path::Path;
 
 use serde::Serialize;
 
+use crate::check::CheckRun;
 use crate::config::TypeChecker;
 use crate::diagnostics::Diagnostic;
 use crate::types_phase::{Severity, TypeDiagnostic, TypesRun};
 
 /// Writes the report for a terminal, without a trailing newline. Each row is written as soon as it is
 /// formatted, so the report is never built in memory as one string.
-pub fn write_text(
-    out: &mut impl Write,
-    presence: &[Diagnostic],
-    types: Option<&TypesRun>,
-) -> io::Result<()> {
-    if !presence.is_empty() {
-        return write_presence(out, presence);
+pub fn write_text(out: &mut impl Write, run: &CheckRun) -> io::Result<()> {
+    if !run.presence.is_empty() {
+        return write_presence(out, &run.presence);
     }
-    write_types_outcome(out, types)
-}
-
-fn write_types_outcome(out: &mut impl Write, types: Option<&TypesRun>) -> io::Result<()> {
-    match types {
+    match &run.types {
         None => out.write_all(b"All checks passed (presence)."),
-        Some(run) if types_passed(run) => out.write_all(b"All checks passed (presence, types)."),
-        Some(run) => write_types(out, run),
+        Some(types) if types.diagnostics.is_empty() && !types.failed => {
+            out.write_all(b"All checks passed (presence, types).")
+        }
+        Some(types) => write_types(out, types),
     }
 }
 
-fn types_passed(run: &TypesRun) -> bool {
-    run.diagnostics.is_empty() && !run.failed
-}
-
-/// Renders diagnostics as one JSON object with a `checker` name, a `presence` array and a `types` array.
 /// `checker` and `types` are `null` when the types phase did not run.
-pub fn render_json(
-    presence: &[Diagnostic],
-    types: Option<&TypesRun>,
-) -> Result<String, serde_json::Error> {
+pub fn render_json(run: &CheckRun) -> Result<String, serde_json::Error> {
     let report = JsonReport {
-        checker: types.map(|run| run.checker.name()),
-        presence,
-        types: types.map(|run| run.diagnostics.as_slice()),
+        checker: run.types.as_ref().map(|types| types.checker.name()),
+        presence: &run.presence,
+        types: run.types.as_ref().map(|types| types.diagnostics.as_slice()),
     };
     serde_json::to_string_pretty(&report)
 }
@@ -129,7 +116,6 @@ impl Row for Diagnostic {
     }
 }
 
-/// A diagnostic of the types phase as a row. Its text starts with the checker's name, such as `ty[rule]`.
 struct TypeRow<'a> {
     checker: TypeChecker,
     diagnostic: &'a TypeDiagnostic,
@@ -186,7 +172,6 @@ fn write_location(out: &mut impl Write, row: &impl Row) -> io::Result<()> {
     write!(out, ":{}:{}", row.line(), row.col())
 }
 
-/// Writes `count` spaces, from a buffer of spaces rather than one character at a time.
 fn write_spaces(out: &mut impl Write, mut count: usize) -> io::Result<()> {
     const SPACES: [u8; 64] = [b' '; 64];
     while count > 0 {

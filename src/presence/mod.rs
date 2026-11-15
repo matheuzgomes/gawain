@@ -27,17 +27,14 @@ use any_check::TypingNames;
 use class_index::{ClassIndex, RawClass};
 use visitor::ExemptAttributes;
 
-/// Parses one module and returns its presence diagnostics, sorted as `check_files` sorts them. Only this file is
-/// indexed, so bases that live in other files count as external. A file that cannot be parsed gives its GW000
-/// errors.
+/// Checks one module held in memory, as `check_files` checks a file. Only this module is indexed, so bases that
+/// live in other files count as external.
 pub fn check_source(path: &Path, source: &str, mode: Mode) -> Vec<Diagnostic> {
-    let mut loaded = [LoadedFile::load(path, source.to_owned())];
-    if mode == Mode::Obvious {
-        declare_exempt_attributes(&mut loaded);
-    }
-    let index = ClassIndex::build(loaded.iter().filter_map(|file| file.as_ref().ok()), mode);
-    let [file] = loaded;
-    check_one(file, &index, mode)
+    check_loaded(
+        vec![LoadedFile::load(path, source.to_owned())],
+        Vec::new(),
+        mode,
+    )
 }
 
 /// Checks one loaded file against the index, or gives the GW000 diagnostics that it failed with, and sorts the
@@ -74,17 +71,20 @@ pub fn check_files(
     mode: Mode,
 ) -> Result<Vec<Diagnostic>, ThreadPoolBuildError> {
     let pool = ThreadPoolBuilder::new().stack_size(STACK_SIZE).build()?;
-    Ok(pool.install(|| check_loaded(files, walk_errors, mode)))
+    Ok(pool.install(|| {
+        let loaded = files
+            .par_iter()
+            .map(|path| LoadedFile::read(path))
+            .collect();
+        check_loaded(loaded, walk_errors, mode)
+    }))
 }
 
-/// The first pass keeps only what other files need of each file, so no syntax tree is alive for more than the work
-/// on its own file. The last pass sorts each file's diagnostics on the thread that made them. Concatenating those
-/// lists in file order gives the same order as one sort, because every diagnostic of a file has that file's path.
-fn check_loaded(files: &[PathBuf], walk_errors: Vec<Diagnostic>, mode: Mode) -> Vec<Diagnostic> {
-    let mut loaded: Vec<Result<LoadedFile, Vec<Diagnostic>>> = files
-        .par_iter()
-        .map(|path| LoadedFile::read(path))
-        .collect();
+fn check_loaded(
+    mut loaded: Vec<Result<LoadedFile, Vec<Diagnostic>>>,
+    walk_errors: Vec<Diagnostic>,
+    mode: Mode,
+) -> Vec<Diagnostic> {
     if mode == Mode::Obvious {
         declare_exempt_attributes(&mut loaded);
     }

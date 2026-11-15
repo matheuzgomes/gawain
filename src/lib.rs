@@ -1,5 +1,6 @@
 //! gawain: reports missing type annotations in Python source files.
 
+pub mod check;
 pub mod config;
 pub mod diagnostics;
 pub mod discovery;

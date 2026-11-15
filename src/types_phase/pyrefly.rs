@@ -1,77 +1,60 @@
 //! The pyrefly checker: runs `pyrefly check` and reads its JSON output.
 
 use std::collections::{HashMap, HashSet};
-use std::fmt;
 use std::fs;
-use std::io;
 use std::path::{Component, Path, PathBuf, absolute};
-use std::process::Output;
 
 use serde::Deserialize;
 use serde_json::{Map, Value};
 
-use crate::config::TypeChecker;
+use super::{CheckerAdapter, Exit, Severity, TypeDiagnostic};
 
-use super::{Severity, TypeDiagnostic, TypesError, TypesRun, spawn};
+pub(super) struct Pyrefly;
 
-#[derive(Debug)]
-pub struct PyreflyOutputError(serde_json::Error);
+impl CheckerAdapter for Pyrefly {
+    /// pyrefly's built-in preset reports too little, so `--preset default` is added. A project with its own
+    /// pyrefly config keeps its preset.
+    fn args(&self, files: &[PathBuf]) -> Vec<&'static str> {
+        let mut args = vec![
+            "check",
+            "--output-format",
+            "json",
+            "--summary=none",
+            "--min-severity",
+            "warn",
+        ];
+        if !has_pyrefly_config(files) {
+            args.extend(["--preset", "default"]);
+        }
+        args
+    }
 
-impl fmt::Display for PyreflyOutputError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "pyrefly output is not JSON with an errors array: {}",
-            self.0
-        )
+    /// pyrefly exits 1 for warnings too, so only its diagnostics can fail the run.
+    fn exit(&self, code: Option<i32>) -> Exit {
+        match code {
+            Some(0 | 1) => Exit::Accepted,
+            _ => Exit::Unexpected,
+        }
+    }
+
+    fn parse(&self, stdout: &str) -> serde_json::Result<Vec<TypeDiagnostic>> {
+        parse_pyrefly_output(stdout)
+    }
+
+    fn restore_paths(
+        &self,
+        diagnostics: Vec<TypeDiagnostic>,
+        files: &[PathBuf],
+        cwd: &Path,
+    ) -> Vec<TypeDiagnostic> {
+        restore_printed_paths(diagnostics, files, cwd)
     }
 }
 
-impl std::error::Error for PyreflyOutputError {}
-
-/// Runs pyrefly on `files` in JSON format and reads what it printed. `--preset default` is added when no pyrefly
-/// config applies to the files, because pyrefly's built-in preset reports too little. With a config, the flag
-/// would override the project's own preset, so it is left out.
-pub(super) fn run_pyrefly(pyrefly: &Path, files: &[PathBuf]) -> Result<TypesRun, TypesError> {
-    let mut args = vec![
-        "check",
-        "--output-format",
-        "json",
-        "--summary=none",
-        "--min-severity",
-        "warn",
-    ];
-    if !has_pyrefly_config(files) {
-        args.extend(["--preset", "default"]);
-    }
-    args.push("--");
-    let output = spawn(pyrefly, &args, files)?;
-    interpret_pyrefly(&output, files)
-}
-
-/// Exit 0 and 1 are both accepted, because pyrefly exits 1 for warnings too. The run fails only when one of its items
-/// is an error.
-fn interpret_pyrefly(output: &Output, files: &[PathBuf]) -> Result<TypesRun, TypesError> {
-    if !matches!(output.status.code(), Some(0 | 1)) {
-        return Err(TypesError::failed(TypeChecker::Pyrefly, output));
-    }
-    let diagnostics = parse_pyrefly_output(&String::from_utf8_lossy(&output.stdout))
-        .map_err(|_| TypesError::failed(TypeChecker::Pyrefly, output))?;
-    let diagnostics = restore_passed_paths(diagnostics, files, std::env::current_dir());
-    let failed = diagnostics
-        .iter()
-        .any(|diagnostic| diagnostic.severity == Severity::Error);
-    Ok(TypesRun {
-        checker: TypeChecker::Pyrefly,
-        diagnostics,
-        failed,
-    })
-}
-pub fn parse_pyrefly_output(stdout: &str) -> Result<Vec<TypeDiagnostic>, PyreflyOutputError> {
-    // A map rejects an array. Reading the report straight from the text would take an array for its fields.
-    let object: Map<String, Value> = serde_json::from_str(stdout).map_err(PyreflyOutputError)?;
-    let report: PyreflyReport =
-        serde_json::from_value(Value::Object(object)).map_err(PyreflyOutputError)?;
+fn parse_pyrefly_output(stdout: &str) -> serde_json::Result<Vec<TypeDiagnostic>> {
+    // serde reads a struct from an array too, taking the elements as its fields. A map rejects an array.
+    let object: Map<String, Value> = serde_json::from_str(stdout)?;
+    let report: PyreflyReport = serde_json::from_value(Value::Object(object))?;
     Ok(report
         .errors
         .into_iter()
@@ -156,7 +139,7 @@ fn fold_component(mut folded: PathBuf, component: Component<'_>) -> PathBuf {
 /// its working directory, and an absolute path outside it without the leading `/`. A path names a passed file when
 /// the file is that path from `cwd`, or from `/` on unix. A path that names no passed file is kept as pyrefly
 /// printed it.
-fn restore_paths(
+fn restore_printed_paths(
     diagnostics: Vec<TypeDiagnostic>,
     files: &[PathBuf],
     cwd: &Path,
@@ -202,20 +185,6 @@ fn candidate_paths(printed: &Path, cwd: &Path) -> Vec<PathBuf> {
     vec![lexical_absolute(&cwd.join(printed))]
 }
 
-/// `restore_paths` against the working directory `cwd`, which the caller reads. When that is unknown, the
-/// diagnostics keep the paths that pyrefly printed.
-fn restore_passed_paths(
-    diagnostics: Vec<TypeDiagnostic>,
-    files: &[PathBuf],
-    cwd: io::Result<PathBuf>,
-) -> Vec<TypeDiagnostic> {
-    match cwd {
-        Ok(cwd) => restore_paths(diagnostics, files, &cwd),
-        Err(_) => diagnostics,
-    }
-}
-
-/// Whether `dir` holds a `pyrefly.toml`, or a `pyproject.toml` with a `[tool.pyrefly]` table.
 fn pyrefly_config_in(dir: &Path) -> bool {
     dir.join("pyrefly.toml").is_file() || pyproject_has_pyrefly_table(&dir.join("pyproject.toml"))
 }
@@ -230,8 +199,6 @@ struct ToolTables {
     pyrefly: Option<toml::Table>,
 }
 
-/// Whether the `pyproject.toml` at `path` has a `[tool.pyrefly]` table. A file that cannot be read or parsed
-/// has none.
 fn pyproject_has_pyrefly_table(path: &Path) -> bool {
     let Ok(text) = fs::read_to_string(path) else {
         return false;
@@ -243,11 +210,12 @@ fn pyproject_has_pyrefly_table(path: &Path) -> bool {
 #[cfg(test)]
 mod tests {
     use std::fs;
-    use std::io;
     use std::path::{Path, PathBuf};
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    use super::{has_pyrefly_config, lexical_absolute, parse_pyrefly_output, restore_passed_paths};
+    use super::{
+        has_pyrefly_config, lexical_absolute, parse_pyrefly_output, restore_printed_paths,
+    };
     use crate::types_phase::{Severity, TypeDiagnostic};
 
     /// What pyrefly 1.4.1 printed for `x: int = "a"` in `plain.py`.
@@ -340,16 +308,6 @@ mod tests {
     #[test]
     fn pyrefly_object_without_errors_is_an_error() {
         assert!(parse_pyrefly_output("{}").is_err());
-    }
-
-    #[test]
-    fn pyrefly_output_error_says_the_output_is_not_json_with_an_errors_array() {
-        let message = parse_pyrefly_output("not json")
-            .err()
-            .map(|error| error.to_string());
-        assert!(message.is_some_and(|text| {
-            text.starts_with("pyrefly output is not JSON with an errors array: ")
-        }));
     }
 
     struct TempDir(PathBuf);
@@ -520,7 +478,7 @@ mod tests {
 
     fn restored(printed: &str, files: &[&str], cwd: &str) -> PathBuf {
         let files: Vec<PathBuf> = files.iter().map(PathBuf::from).collect();
-        restore_passed_paths(vec![diagnostic_at(printed)], &files, Ok(PathBuf::from(cwd)))
+        restore_printed_paths(vec![diagnostic_at(printed)], &files, Path::new(cwd))
             .remove(0)
             .path
     }
@@ -556,17 +514,5 @@ mod tests {
             restored("other.py", &["/proj/app/z.py"], "/proj/app"),
             PathBuf::from("other.py")
         );
-    }
-
-    #[test]
-    fn paths_are_kept_when_the_working_directory_is_unknown() {
-        let diagnostics = vec![diagnostic_at("z.py")];
-        let files = [PathBuf::from("./z.py")];
-        let kept = restore_passed_paths(
-            diagnostics.clone(),
-            &files,
-            Err(io::Error::other("no working directory")),
-        );
-        assert_eq!(kept, diagnostics);
     }
 }

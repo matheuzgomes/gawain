@@ -1,56 +1,42 @@
 //! The ty checker: runs `ty check` and reads its gitlab JSON output.
 
-use std::fmt;
-use std::path::{Path, PathBuf};
-use std::process::Output;
+use std::path::PathBuf;
 
 use serde::Deserialize;
 
-use crate::config::TypeChecker;
-
-use super::{Severity, TypeDiagnostic, TypesError, TypesRun, failed_from_exit_code, spawn};
+use super::{CheckerAdapter, Exit, Severity, TypeDiagnostic};
 
 /// The gitlab `severity` that ty 0.0.100 gives a warning. Every other severity is an error.
 const TY_WARNING_SEVERITY: &str = "minor";
 
-#[derive(Debug)]
-pub struct TyOutputError(serde_json::Error);
+pub(super) struct Ty;
 
-impl fmt::Display for TyOutputError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "ty output is not gitlab JSON: {}", self.0)
+impl CheckerAdapter for Ty {
+    fn args(&self, _files: &[PathBuf]) -> Vec<&'static str> {
+        vec![
+            "check",
+            "--output-format",
+            "gitlab",
+            "--exit-zero-on-warning",
+        ]
+    }
+
+    /// With `--exit-zero-on-warning`, ty exits 1 only when it found an error.
+    fn exit(&self, code: Option<i32>) -> Exit {
+        match code {
+            Some(0) => Exit::Accepted,
+            Some(1) => Exit::Failed,
+            _ => Exit::Unexpected,
+        }
+    }
+
+    fn parse(&self, stdout: &str) -> serde_json::Result<Vec<TypeDiagnostic>> {
+        parse_ty_output(stdout)
     }
 }
 
-impl std::error::Error for TyOutputError {}
-
-/// Runs ty on `files` in gitlab format, with warnings that do not fail the run.
-pub(super) fn run_ty(ty: &Path, files: &[PathBuf]) -> Result<TypesRun, TypesError> {
-    let args = [
-        "check",
-        "--output-format",
-        "gitlab",
-        "--exit-zero-on-warning",
-        "--",
-    ];
-    let output = spawn(ty, &args, files)?;
-    interpret_ty(&output)
-}
-
-fn interpret_ty(output: &Output) -> Result<TypesRun, TypesError> {
-    let failed = failed_from_exit_code(output.status.code())
-        .ok_or_else(|| TypesError::failed(TypeChecker::Ty, output))?;
-    let diagnostics = parse_ty_output(&String::from_utf8_lossy(&output.stdout))
-        .map_err(|_| TypesError::failed(TypeChecker::Ty, output))?;
-    Ok(TypesRun {
-        checker: TypeChecker::Ty,
-        diagnostics,
-        failed,
-    })
-}
-
-pub fn parse_ty_output(stdout: &str) -> Result<Vec<TypeDiagnostic>, TyOutputError> {
-    let items: Vec<GitlabItem> = serde_json::from_str(stdout).map_err(TyOutputError)?;
+fn parse_ty_output(stdout: &str) -> serde_json::Result<Vec<TypeDiagnostic>> {
+    let items: Vec<GitlabItem> = serde_json::from_str(stdout)?;
     Ok(items.into_iter().map(TypeDiagnostic::from).collect())
 }
 
@@ -161,14 +147,6 @@ mod tests {
     #[test]
     fn text_that_is_not_json_is_an_error() {
         assert!(parse_ty_output("not json").is_err());
-    }
-
-    #[test]
-    fn output_error_says_the_output_is_not_gitlab_json() {
-        let message = parse_ty_output("not json")
-            .err()
-            .map(|error| error.to_string());
-        assert!(message.is_some_and(|text| text.starts_with("ty output is not gitlab JSON: ")));
     }
 
     #[test]
