@@ -107,24 +107,6 @@ const CLAIMS: &[Claim] = &[
         "pass",
         "pass",
     ),
-    within(
-        "self.x = 1",
-        "class C:\n    def m(self) -> None:\n        self.x = 1\n",
-        "GW004",
-        "GW004",
-    ),
-    within(
-        "x: ClassVar[int] = 0",
-        "from typing import ClassVar\n\n\nclass C:\n    x: ClassVar[int] = 0\n",
-        "pass",
-        "pass",
-    ),
-    within(
-        "X: Final[int] = 1",
-        "from typing import Final\n\n\nclass C:\n    X: Final[int] = 1\n",
-        "pass",
-        "pass",
-    ),
     within("size = 0", "class C:\n    size = 0\n", "pass", "GW004"),
 ];
 
@@ -137,17 +119,25 @@ const NOT_PRESENCE: &[(&str, &str)] = &[
         "pyrefly check --output-format json --summary=none --min-severity warn -- FILES",
         "the command gawain runs",
     ),
-    ("strict = true", "must-annotate's config"),
-    ("exclude = []", "must-annotate's config"),
-    ("self.x = ...", "describes must-annotate's TF004"),
 ];
 
+/// The docs in the repository. Internal notes in docs/ are ignored by git and not published.
 fn docs() -> Vec<String> {
-    let mut found: Vec<String> = fs::read_dir(Path::new(ROOT).join("docs"))
-        .expect("docs/ is readable")
-        .map(|entry| entry.expect("a docs/ entry is readable").path())
-        .filter(|path| path.extension().is_some_and(|extension| extension == "md"))
-        .map(|path| format!("docs/{}", path.file_name().unwrap().to_string_lossy()))
+    let output = std::process::Command::new("git")
+        .current_dir(ROOT)
+        .args(["ls-files", "README.md", "docs/*.md"])
+        .output()
+        .expect("git runs");
+    assert!(
+        output.status.success(),
+        "git ls-files failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let mut found: Vec<String> = String::from_utf8(output.stdout)
+        .expect("git prints UTF-8 paths")
+        .lines()
+        .filter(|path| *path != "README.md")
+        .map(str::to_owned)
         .collect();
     found.sort();
     found.insert(0, "README.md".to_owned());
